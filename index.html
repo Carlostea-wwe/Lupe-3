@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="SB-Lupe: Kamera-Lupe mit großer Schrift und starken Kontrasten.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="SB-Lupe">
+  <title>SB-Lupe</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23000' width='32' height='32'/%3E%3Ccircle cx='13' cy='13' r='7' fill='none' stroke='%23ffe14a' stroke-width='3'/%3E%3Cpath stroke='%23ffe14a' stroke-width='3' stroke-linecap='round' d='M18 18 L27 27'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="app">
+    <h1 class="sr-only">SB-Lupe</h1>
+    <p id="app-desc" class="sr-only">Kamera-Lupe für kleines Schrift. Das Bild füllt den Bildschirm. Darüber liegt der Zoomregler, darunter eine Zeile mit großen Tasten. Die Taste mit dem Namen der Darstellung schaltet bei jedem Tipp zur nächsten.</p>
+    <main class="stage" aria-describedby="app-desc">
+      <div id="banner" class="banner" hidden>
+        <p id="banner-text"></p>
+        <button type="button" id="retry">Erneut versuchen</button>
+      </div>
+      <div class="view" id="view-wrap">
+        <video id="video" autoplay playsinline muted disablepictureinpicture></video>
+        <canvas id="view"></canvas>
+        <p id="zoom-overlay" class="zoom-overlay" aria-hidden="true">1,0×</p>
+        <p id="mode-hint" class="mode-hint" aria-hidden="true"></p>
+        <div id="install-hint" class="install-hint" hidden>
+          <p id="install-hint-text"></p>
+          <button type="button" id="install-hint-ok">OK</button>
+        </div>
+        <div id="focus-ring" class="focus-ring" aria-hidden="true"></div>
+        <p id="cam-debug" class="cam-debug" hidden></p>
+        <div id="reading-guide" class="reading-guide" hidden>
+          <div class="guide-shade guide-shade-top"></div>
+          <div class="guide-window"></div>
+          <div class="guide-shade guide-shade-bottom"></div>
+          <div class="guide-handle" id="guide-handle">
+            <div class="guide-grip" id="guide-grip" role="slider" tabindex="0" aria-label="Lesezeile verschieben" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+              <svg viewBox="0 0 24 40" aria-hidden="true"><path fill="currentColor" d="M12 2 4 12h16L12 2zm0 36 8-10H4l8 10z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <div class="dock">
+      <div class="zoom-row" id="zoom-row">
+        <div class="slider-line">
+          <span id="zoom-min" class="zoom-end" aria-hidden="true">1x</span>
+          <label for="zoom-slider" class="sr-only">Zoomstufe</label>
+          <input type="range" id="zoom-slider" min="1" max="10" step="0.05" value="1" aria-label="Zoomstufe" aria-valuetext="1,0× Zoom">
+          <span id="zoom-max" class="zoom-end" aria-hidden="true">10x</span>
+        </div>
+      </div>
+      <nav class="bar" id="bar" aria-label="Werkzeuge und Darstellung">
+        <p class="sr-only">Eine Zeile mit großen Tasten. Die erste Taste wechselt die Darstellung. Am Ende liegt Einstellungen.</p>
+        <div class="more more-left" aria-hidden="true">‹</div>
+        <div class="more more-right" aria-hidden="true">›</div>
+        <div class="bar-scroll" id="bar-scroll"></div>
+      </nav>
+    </div>
+    <div id="live" class="sr-only" aria-live="polite"></div>
+    <div id="settings" class="settings" hidden>
+      <div class="settings-body">
+        <h2 id="settings-title" tabindex="-1">Einstellungen</h2>
+
+        <section id="install-section">
+          <button type="button" class="set-btn" id="install-app">App installieren</button>
+          <p class="settings-lead" id="install-note" hidden></p>
+        </section>
+
+        <section>
+          <h3>Schriftgröße</h3>
+          <p class="settings-lead">Größe der Tasten und der Texte. Normal entspricht der Ansicht ohne extra Vergrößerung.</p>
+          <div class="rotate-picks" role="radiogroup" aria-label="Schriftgröße">
+            <button type="button" class="rotate-choice" role="radio" data-text="normal" aria-checked="true">Normal</button>
+            <button type="button" class="rotate-choice" role="radio" data-text="gross" aria-checked="false">Groß</button>
+            <button type="button" class="rotate-choice" role="radio" data-text="sehr-gross" aria-checked="false">Sehr groß</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>Bildmodi auswählen</h3>
+          <p class="settings-lead">Nur angehakte Modi erscheinen auf der Darstellungstaste. Normal bleibt immer eingeschaltet.</p>
+          <div id="mode-picks"></div>
+        </section>
+
+        <section>
+          <h3>Lesezeile</h3>
+          <div class="set-row">
+            <span id="guide-label">Lesezeile</span>
+            <button type="button" class="switch" id="guide-switch" role="switch" aria-checked="false" aria-labelledby="guide-label"></button>
+          </div>
+          <p class="settings-lead">Höhe des freien Streifens in der Mitte.</p>
+          <div class="size-picks" role="group" aria-label="Höhe der Lesezeile">
+            <button type="button" data-size="klein" aria-pressed="false">Klein</button>
+            <button type="button" data-size="mittel" aria-pressed="true">Mittel</button>
+            <button type="button" data-size="gross" aria-pressed="false">Groß</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>Helligkeit und Kontrast</h3>
+          <label class="slider-label" for="set-brightness">Helligkeit <span id="bright-value">100 %</span></label>
+          <div class="menu-slider">
+            <button type="button" class="step-btn" id="bright-down" aria-label="Helligkeit verringern">−</button>
+            <div class="slider-field">
+              <input class="set-slider" id="set-brightness" type="range" min="40" max="180" step="5" value="100" aria-valuetext="100 Prozent">
+            </div>
+            <button type="button" class="step-btn" id="bright-up" aria-label="Helligkeit erhöhen">+</button>
+          </div>
+          <label class="slider-label" for="set-contrast">Kontrast <span id="contrast-value">100 %</span></label>
+          <div class="menu-slider">
+            <button type="button" class="step-btn" id="contrast-down" aria-label="Kontrast verringern">−</button>
+            <div class="slider-field">
+              <input class="set-slider" id="set-contrast" type="range" min="40" max="200" step="5" value="100" aria-valuetext="100 Prozent">
+            </div>
+            <button type="button" class="step-btn" id="contrast-up" aria-label="Kontrast erhöhen">+</button>
+          </div>
+          <button type="button" class="set-btn" id="set-reset">Zurücksetzen</button>
+        </section>
+
+        <section>
+          <h3>Kamera</h3>
+          <button type="button" class="set-btn" id="set-switch">Kamera wechseln</button>
+          <p class="settings-lead" id="camera-note" hidden>Nur eine Kamera gefunden.</p>
+          <div class="set-row" id="focus-row">
+            <span id="focus-label">Scharfstellen per Fingertipp</span>
+            <button type="button" class="switch" id="focus-switch" role="switch" aria-checked="false" aria-labelledby="focus-label"></button>
+          </div>
+          <p class="settings-lead" id="focus-note" hidden>Auf diesem Gerät nicht verfügbar.</p>
+        </section>
+
+        <section>
+          <h3>Drehen</h3>
+          <p class="settings-lead">Wann sich die Lupe mit dem Handy drehen darf.</p>
+          <div class="rotate-picks" role="radiogroup" aria-label="Drehen">
+            <button type="button" class="rotate-choice" role="radio" data-rotate="follow" aria-checked="true">Immer mitdrehen</button>
+            <button type="button" class="rotate-choice" role="radio" data-rotate="guide" aria-checked="false">Nur mit Lesezeile mitdrehen</button>
+            <button type="button" class="rotate-choice" role="radio" data-rotate="lock" aria-checked="false">Nicht drehen</button>
+          </div>
+        </section>
+
+        <section>
+          <div class="set-row">
+            <span id="remember-label">Letzte Einstellung beim Start merken</span>
+            <button type="button" class="switch" id="remember-switch" role="switch" aria-checked="false" aria-labelledby="remember-label"></button>
+          </div>
+          <p class="settings-lead">Wenn an, startet die Lupe mit dem letzten Bildmodus, Zoom, der Lesezeile samt Position, Helligkeit und Kontrast. Licht, Standbild und die Rückkamera starten immer neu.</p>
+        </section>
+      </div>
+      <div class="settings-footer">
+        <button type="button" class="set-btn settings-done" id="settings-done">Fertig</button>
+      </div>
+    </div>
+  </div>
+  <noscript>
+    <p class="noscript">SB-Lupe braucht JavaScript, um die Kamera zu benutzen.</p>
+  </noscript>
+  <script src="js/modes.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
