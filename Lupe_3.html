@@ -1,0 +1,5307 @@
+<!DOCTYPE html>
+<!-- SB-Lupe Einzeldatei. Erzeugt von scripts/bundle.py aus index.html, css/app.css und js/. Nicht von Hand ändern. -->
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="SB-Lupe: Kamera-Lupe mit großer Schrift und starken Kontrasten.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="SB-Lupe">
+  <title>SB-Lupe</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23000' width='32' height='32'/%3E%3Ccircle cx='13' cy='13' r='7' fill='none' stroke='%23ffe14a' stroke-width='3'/%3E%3Cpath stroke='%23ffe14a' stroke-width='3' stroke-linecap='round' d='M18 18 L27 27'/%3E%3C/svg%3E">
+  <style>
+/* SB-Lupe: schwarzer Bildschirm, eine hohe Tastenleiste, starke Kontraste. */
+
+* { box-sizing: border-box; }
+
+html {
+  --ui-scale: 1;
+  --page-zoom: 1;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  color: #fff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  padding-top: env(safe-area-inset-top);
+}
+
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+}
+
+.banner {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.75rem 0.9rem 0.85rem;
+  background: #ffe14a;
+  color: #111;
+  font-size: calc(1.2rem * var(--ui-scale) / var(--page-zoom));
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.banner p {
+  margin: 0;
+}
+
+.banner button {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  min-height: clamp(48px, calc(18vw * var(--ui-scale)), calc(3.6rem * var(--ui-scale) / var(--page-zoom)));
+  padding: 0.6rem 1rem;
+  border: 3px solid #111;
+  border-radius: 14px;
+  background: #111;
+  color: #ffe14a;
+  font: inherit;
+  font-size: calc(1.25rem * var(--ui-scale) / var(--page-zoom));
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.banner button:focus-visible {
+  outline: 4px solid #111;
+  outline-offset: 3px;
+}
+
+.view {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+  touch-action: none;
+}
+
+.view::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 0 60px #39e06a;
+}
+
+.view.normal-flash::after {
+  animation: normal-frame 1.3s ease-in-out 1;
+}
+
+@keyframes normal-frame {
+  0% { opacity: 0; }
+  38% { opacity: 1; }
+  62% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.view video,
+.view canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.view video {
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.view canvas {
+  z-index: 1;
+}
+
+.zoom-overlay {
+  position: absolute;
+  z-index: 5;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.45rem 1.15rem;
+  border-radius: 16px;
+  background: #1a1a1a;
+  color: #fff;
+  border: 3px solid #f2f2f2;
+  font-size: min(calc(3.2rem * var(--ui-scale) / var(--page-zoom)), calc(16vw * var(--ui-scale)));
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s linear;
+}
+
+.zoom-overlay.show { opacity: 1; }
+
+.mode-hint {
+  position: fixed;
+  z-index: 80;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-width: 90%;
+  padding: 0.55rem 1.1rem;
+  border-radius: 16px;
+  background: #1a1a1a;
+  color: #fff;
+  border: 3px solid #f2f2f2;
+  font-size: min(calc(2.4rem * var(--ui-scale) / var(--page-zoom)), calc(12vw * var(--ui-scale)));
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s linear;
+}
+
+.mode-hint.show { opacity: 1; }
+
+.install-hint {
+  position: fixed;
+  z-index: 90;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(92vw, 26rem);
+  max-height: min(86vh, 86dvh);
+  margin: 0;
+  padding: 1rem 1.05rem 0.95rem;
+  border-radius: 16px;
+  background: #1a1a1a;
+  color: #fff;
+  border: 3px solid #f2f2f2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.install-hint[hidden] { display: none; }
+
+.install-hint p {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 0 0.9rem;
+  overflow-y: auto;
+  font-size: min(calc(1.45rem * var(--ui-scale) / var(--page-zoom)), calc(7.25vw * var(--ui-scale)));
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.install-hint button {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: clamp(48px, calc(17vw * var(--ui-scale)), calc(3.4rem * var(--ui-scale) / var(--page-zoom)));
+  border: 3px solid #ffe14a;
+  border-radius: 14px;
+  background: #111;
+  color: #ffe14a;
+  font: inherit;
+  font-size: min(calc(1.45rem * var(--ui-scale) / var(--page-zoom)), calc(7.25vw * var(--ui-scale)));
+  font-weight: 900;
+}
+
+.install-hint button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+#install-section[hidden] { display: none; }
+
+#install-section .set-btn { margin-top: 0.2rem; }
+
+.focus-ring {
+  position: absolute;
+  z-index: 6;
+  width: 4.6rem;
+  height: 4.6rem;
+  margin: 0;
+  border: 4px solid #ffe14a;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #111;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.cam-debug {
+  position: absolute;
+  z-index: 7;
+  left: 0.4rem;
+  bottom: 0.35rem;
+  margin: 0;
+  padding: 0.15rem 0.35rem;
+  background: rgba(0, 0, 0, 0.72);
+  color: #f2f2f2;
+  border: 1px solid #f2f2f2;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.focus-ring.show {
+  animation: focus-pop 0.85s ease-out 1;
+}
+
+@keyframes focus-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+.dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.zoom-row {
+  padding: 0.55rem 0.7rem 0.15rem;
+  padding-left: max(0.7rem, env(safe-area-inset-left));
+  padding-right: max(0.7rem, env(safe-area-inset-right));
+}
+
+.slider-line {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+.zoom-end {
+  flex: 0 0 auto;
+  min-width: 2.2em;
+  color: #fff;
+  font-size: min(calc(1.2rem * var(--ui-scale) / var(--page-zoom)), calc(6vw * var(--ui-scale)));
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+#zoom-min { text-align: left; }
+#zoom-max { text-align: right; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  background: transparent;
+  touch-action: pan-x;
+  accent-color: #007bff;
+}
+
+input[type="range"]:focus { outline: none; }
+
+input[type="range"]:focus-visible {
+  outline: 4px solid #ffe14a;
+  outline-offset: 3px;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 11px;
+  background: #e6e6e6;
+  border: 0;
+  border-radius: 999px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -8px;
+  background: #007bff;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 11px;
+  background: #e6e6e6;
+  border: 0;
+  border-radius: 999px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  background: #007bff;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.bar {
+  position: relative;
+  background: transparent;
+}
+
+.bar-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  justify-content: flex-start;
+  margin-left: env(safe-area-inset-left);
+  margin-right: env(safe-area-inset-right);
+  padding: 0.6rem 0.5rem calc(0.6rem + env(safe-area-inset-bottom));
+}
+
+.bar.can-left .bar-scroll {
+  margin-left: calc(0.95rem + env(safe-area-inset-left));
+}
+
+.bar.can-right .bar-scroll {
+  margin-right: calc(0.95rem + env(safe-area-inset-right));
+}
+
+.bar-scroll::-webkit-scrollbar { display: none; }
+
+.cluster {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.cluster + .cluster {
+  margin-left: 0.45rem;
+  padding-left: 0.85rem;
+  border-left: 4px solid #ffe14a;
+}
+
+.ctrl {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: clamp(48px, calc(21.25vw * var(--ui-scale)), calc(4.25rem * var(--ui-scale) / var(--page-zoom)));
+  margin: 0;
+  padding: 0.55rem min(calc(0.8rem * var(--ui-scale) / var(--page-zoom)), calc(3vw * var(--ui-scale)));
+  border: 3px solid #f2f2f2;
+  border-radius: 16px;
+  background: #1a1a1a;
+  color: #fff;
+  font: inherit;
+  font-size: min(calc(1.28rem * var(--ui-scale) / var(--page-zoom)), calc(6.4vw * var(--ui-scale)));
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255, 225, 74, 0.7);
+}
+
+.ctrl .sym {
+  font-size: min(calc(1.7rem * var(--ui-scale) / var(--page-zoom)), calc(8.5vw * var(--ui-scale)));
+  line-height: 1;
+  margin-right: 0.4rem;
+  font-weight: 700;
+}
+
+.ctrl[aria-checked="true"],
+.ctrl[aria-pressed="true"] {
+  background: #1a1a1a;
+  border-color: #ffe14a;
+  color: #ffe14a;
+  box-shadow: inset 0 0 0 2px #ffe14a;
+}
+
+.ctrl:active {
+  background: #111;
+  color: #fff;
+}
+
+.ctrl[aria-checked="true"]:active,
+.ctrl[aria-pressed="true"]:active {
+  background: #111;
+  border-color: #ffe14a;
+  color: #ffe14a;
+}
+
+.ctrl:focus { outline: none; }
+
+.ctrl:focus-visible {
+  outline: 4px solid #ffe14a;
+  outline-offset: 3px;
+}
+
+.ctrl:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ctrl .gear {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.4rem;
+}
+
+.ctrl .gear svg,
+.mode-btn .house svg {
+  display: block;
+  width: 1.35em;
+  height: 1.35em;
+}
+
+.mode-btn .house {
+  display: none;
+  align-items: center;
+  margin-right: 0.4rem;
+  color: #39e06a;
+}
+
+.mode-btn.is-normal {
+  background: #1a1a1a;
+  border-color: #39e06a;
+  box-shadow: inset 0 0 0 2px #39e06a;
+  color: #39e06a;
+}
+
+.mode-btn.is-normal .house {
+  display: inline-flex;
+}
+
+.more {
+  display: none;
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  width: 0.85rem;
+  height: 1.2rem;
+  margin-top: -0.6rem;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #ffe14a;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.more-left { left: env(safe-area-inset-left); }
+.more-right { right: env(safe-area-inset-right); }
+
+.bar.can-left .more-left,
+.bar.can-right .more-right { display: flex; }
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 1.5rem;
+  background: #ffe14a;
+  color: #111;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-height: 520px) {
+  .ctrl { min-height: clamp(48px, calc(16.5vw * var(--ui-scale)), calc(3.3rem * var(--ui-scale) / var(--page-zoom))); font-size: min(calc(1.12rem * var(--ui-scale) / var(--page-zoom)), calc(5.6vw * var(--ui-scale))); padding: 0.4rem min(calc(0.8rem * var(--ui-scale) / var(--page-zoom)), calc(3vw * var(--ui-scale))); }
+  .zoom-end { font-size: min(calc(1.05rem * var(--ui-scale) / var(--page-zoom)), calc(5.25vw * var(--ui-scale))); }
+  input[type="range"] { height: 28px; }
+  input[type="range"]::-webkit-slider-runnable-track,
+  input[type="range"]::-moz-range-track { height: 8px; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -7px; }
+  input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
+  .zoom-overlay { font-size: min(calc(2rem * var(--ui-scale) / var(--page-zoom)), calc(10vw * var(--ui-scale))); }
+  .mode-hint { font-size: min(calc(1.8rem * var(--ui-scale) / var(--page-zoom)), calc(9vw * var(--ui-scale))); }
+  .banner { font-size: min(calc(1.05rem * var(--ui-scale) / var(--page-zoom)), calc(5.25vw * var(--ui-scale))); }
+  .zoom-row { padding-top: 0.4rem; padding-bottom: 0.25rem; }
+  .bar-scroll { padding-top: 0.35rem; padding-bottom: calc(0.35rem + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoom-overlay,
+  .mode-hint,
+  .view.normal-flash::after { transition: none; animation: none; }
+  .bar-scroll { scroll-behavior: auto; }
+}
+
+@media (forced-colors: active) {
+  .ctrl,
+  .zoom-chip,
+  .banner,
+  .banner button {
+    forced-color-adjust: none;
+    border-color: ButtonText;
+  }
+  .ctrl[aria-checked="true"],
+  .ctrl[aria-pressed="true"] {
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+}
+
+.reading-guide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.reading-guide[hidden] { display: none; }
+
+.guide-shade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.86);
+}
+
+.guide-window {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  top: 37%;
+  height: 26%;
+  border-top: 4px solid #ffe14a;
+  border-bottom: 4px solid #ffe14a;
+}
+
+.guide-handle {
+  position: absolute;
+  right: max(8px, env(safe-area-inset-right));
+  top: 50%;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transform: translateY(-50%);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.guide-grip {
+  position: relative;
+  box-sizing: border-box;
+  width: 48px;
+  height: 57px;
+  min-width: 48px;
+  min-height: 48px;
+  border: 2px solid #1a1a1a;
+  border-radius: 12px;
+  background: #ffe14a;
+  color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+}
+
+.guide-grip svg {
+  width: 21px;
+  height: 33px;
+  display: block;
+}
+
+.guide-grip:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.settings {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  background: #0c0c0c;
+  color: #fff;
+}
+
+.settings[hidden] { display: none; }
+
+.settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(1rem + env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 1.2rem max(1rem, env(safe-area-inset-left));
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.settings h2 {
+  margin: 0 0 0.5rem;
+  font-size: min(calc(2.8rem * var(--ui-scale) / var(--page-zoom)), calc(14vw * var(--ui-scale)));
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.settings h3 {
+  margin: 1.6rem 0 0.55rem;
+  font-size: min(calc(2.05rem * var(--ui-scale) / var(--page-zoom)), calc(10.25vw * var(--ui-scale)));
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.settings-lead {
+  margin: 0 0 0.8rem;
+  font-size: min(calc(1.65rem * var(--ui-scale) / var(--page-zoom)), calc(8.25vw * var(--ui-scale)));
+  font-weight: 700;
+  line-height: 1.35;
+  color: #f2f2f2;
+  overflow-wrap: anywhere;
+}
+
+.pick-row,
+.set-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  min-height: clamp(48px, calc(32vw * var(--ui-scale)), calc(6.4rem * var(--ui-scale) / var(--page-zoom)));
+  padding: 0.7rem 0;
+  border-bottom: 2px solid #2c2c2c;
+  font-size: min(calc(1.9rem * var(--ui-scale) / var(--page-zoom)), calc(9.5vw * var(--ui-scale)));
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.pick-row > span,
+.set-row > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.pick-row.is-locked { opacity: 0.7; }
+
+.pick-note {
+  flex: 0 1 auto;
+  margin-right: auto;
+  color: #d8d8d8;
+  font-size: min(calc(1.5rem * var(--ui-scale) / var(--page-zoom)), calc(7.5vw * var(--ui-scale)));
+  font-weight: 700;
+  white-space: normal;
+}
+
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: center;
+  width: clamp(48px, calc(39vw * var(--ui-scale)), calc(7.8rem * var(--ui-scale) / var(--page-zoom)));
+  height: clamp(48px, calc(23vw * var(--ui-scale)), calc(4.6rem * var(--ui-scale) / var(--page-zoom)));
+  margin: 0;
+  padding: 0;
+  border: 3px solid #f2f2f2;
+  border-radius: 999px;
+  background: #1a1a1a;
+  color: transparent;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  width: min(calc(3.2rem * var(--ui-scale) / var(--page-zoom)), calc(14vw * var(--ui-scale)));
+  height: min(calc(3.2rem * var(--ui-scale) / var(--page-zoom)), calc(14vw * var(--ui-scale)));
+  border-radius: 50%;
+  background: #9a9a9a;
+}
+
+.switch[aria-checked="true"] {
+  border-color: #ffe14a;
+}
+
+.switch[aria-checked="true"]::after {
+  left: auto;
+  right: 0.28rem;
+  background: #ffe14a;
+}
+
+.switch:disabled {
+  cursor: default;
+}
+
+.switch:focus-visible,
+.size-picks button:focus-visible,
+.set-btn:focus-visible {
+  outline: 4px solid #ffe14a;
+  outline-offset: 3px;
+}
+
+.size-picks {
+  display: flex;
+  gap: 0.55rem;
+  margin-bottom: 0.4rem;
+}
+
+.size-picks button,
+.set-btn {
+  min-height: clamp(48px, calc(30vw * var(--ui-scale)), calc(6rem * var(--ui-scale) / var(--page-zoom)));
+  border: 3px solid #f2f2f2;
+  border-radius: 16px;
+  background: #1a1a1a;
+  color: #fff;
+  font: inherit;
+  font-size: min(calc(1.85rem * var(--ui-scale) / var(--page-zoom)), calc(9.25vw * var(--ui-scale)));
+  font-weight: 800;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.size-picks button {
+  flex: 1 1 0;
+}
+
+.size-picks button[aria-pressed="true"],
+.set-btn:active {
+  border-color: #ffe14a;
+  color: #ffe14a;
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  font-size: min(calc(1.9rem * var(--ui-scale) / var(--page-zoom)), calc(9.5vw * var(--ui-scale)));
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.menu-slider {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.35rem 0 0.7rem;
+  touch-action: pan-y;
+}
+
+.slider-field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  touch-action: pan-y;
+}
+
+.set-slider {
+  width: 100%;
+  margin: 0;
+  pointer-events: none;
+  touch-action: pan-y;
+}
+
+.step-btn {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 3px solid #f2f2f2;
+  border-radius: 14px;
+  background: #1a1a1a;
+  color: #ffe14a;
+  font: inherit;
+  font-size: min(calc(1.8rem * var(--ui-scale) / var(--page-zoom)), calc(9vw * var(--ui-scale)));
+  font-weight: 800;
+  line-height: 1;
+}
+
+.step-btn:focus-visible {
+  outline: 4px solid #ffe14a;
+  outline-offset: 3px;
+}
+
+.settings input[type="range"] { height: 48px; }
+.settings input[type="range"]::-webkit-slider-runnable-track,
+.settings input[type="range"]::-moz-range-track { height: 16px; }
+.settings input[type="range"]::-webkit-slider-thumb {
+  width: 40px;
+  height: 40px;
+  margin-top: -12px;
+}
+.settings input[type="range"]::-moz-range-thumb {
+  width: 40px;
+  height: 40px;
+}
+
+.set-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.85rem;
+}
+
+.rotate-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.rotate-choice {
+  display: block;
+  width: 100%;
+  min-height: clamp(48px, calc(27vw * var(--ui-scale)), calc(5.4rem * var(--ui-scale) / var(--page-zoom)));
+  padding: 0.7rem min(calc(1rem * var(--ui-scale) / var(--page-zoom)), calc(4vw * var(--ui-scale)));
+  border: 3px solid #f2f2f2;
+  border-radius: 16px;
+  background: #1a1a1a;
+  color: #fff;
+  font: inherit;
+  font-size: min(calc(1.7rem * var(--ui-scale) / var(--page-zoom)), calc(8.5vw * var(--ui-scale)));
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.rotate-choice[aria-checked="true"] {
+  border-color: #ffe14a;
+  color: #ffe14a;
+  box-shadow: inset 0 0 0 2px #ffe14a;
+}
+
+.rotate-choice:focus-visible {
+  outline: 4px solid #ffe14a;
+  outline-offset: 3px;
+}
+
+.settings-footer {
+  flex: 0 0 auto;
+  background: #0c0c0c;
+  border-top: 2px solid #2c2c2c;
+  padding: 0.55rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+.settings-done {
+  width: 100%;
+  margin: 0;
+  border-color: #ffe14a;
+  color: #ffe14a;
+}
+
+#settings-title:focus { outline: none; }
+
+@media (orientation: landscape), (min-aspect-ratio: 4/3) {
+  .zoom-overlay { top: 22%; }
+  .mode-hint { top: 32%; }
+  .guide-window { border-top-width: 3px; border-bottom-width: 3px; }
+}
+
+@media (max-height: 520px) and (min-aspect-ratio: 4/3) {
+  .banner { padding: 0.4rem 0.7rem 0.5rem; font-size: min(calc(1rem * var(--ui-scale) / var(--page-zoom)), calc(5vw * var(--ui-scale))); }
+  .banner button { min-height: min(calc(2.5rem * var(--ui-scale) / var(--page-zoom)), calc(12.5vw * var(--ui-scale))); margin-top: 0.4rem; font-size: min(calc(1.05rem * var(--ui-scale) / var(--page-zoom)), calc(5.25vw * var(--ui-scale))); }
+  .zoom-row { padding-top: 0.2rem; padding-bottom: 0; }
+  .ctrl { min-height: clamp(48px, calc(15vw * var(--ui-scale)), calc(3rem * var(--ui-scale) / var(--page-zoom))); font-size: min(calc(1.05rem * var(--ui-scale) / var(--page-zoom)), calc(5.25vw * var(--ui-scale))); padding: 0.28rem 0.65rem; }
+  .bar-scroll { padding-top: 0.2rem; padding-bottom: calc(0.25rem + env(safe-area-inset-bottom)); }
+  .zoom-overlay { font-size: min(calc(1.8rem * var(--ui-scale) / var(--page-zoom)), calc(9vw * var(--ui-scale))); }
+  .mode-hint { font-size: min(calc(1.45rem * var(--ui-scale) / var(--page-zoom)), calc(7.25vw * var(--ui-scale))); max-width: 92%; }
+  .guide-grip {
+    width: 48px;
+    height: 48px;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+  .guide-grip::before {
+    content: "";
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    border: 2px solid #1a1a1a;
+    border-radius: 11px;
+    background: #ffe14a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
+  .guide-grip svg {
+    position: relative;
+    z-index: 1;
+    width: 18px;
+    height: 26px;
+  }
+  .settings h2 { font-size: min(calc(1.8rem * var(--ui-scale) / var(--page-zoom)), calc(9vw * var(--ui-scale))); }
+  .settings h3 { margin: 0.85rem 0 0.35rem; font-size: min(calc(1.35rem * var(--ui-scale) / var(--page-zoom)), calc(6.75vw * var(--ui-scale))); }
+  .settings-lead { font-size: min(calc(1.15rem * var(--ui-scale) / var(--page-zoom)), calc(5.75vw * var(--ui-scale))); }
+  .pick-row,
+  .set-row { min-height: clamp(48px, calc(17vw * var(--ui-scale)), calc(3.4rem * var(--ui-scale) / var(--page-zoom))); font-size: min(calc(1.25rem * var(--ui-scale) / var(--page-zoom)), calc(6.25vw * var(--ui-scale))); padding: 0.35rem 0; }
+  .switch { width: clamp(48px, calc(26vw * var(--ui-scale)), calc(5.2rem * var(--ui-scale) / var(--page-zoom))); height: clamp(44px, calc(15.5vw * var(--ui-scale)), calc(3.1rem * var(--ui-scale) / var(--page-zoom))); }
+  .switch::after { width: min(calc(2rem * var(--ui-scale) / var(--page-zoom)), calc(10vw * var(--ui-scale))); height: min(calc(2rem * var(--ui-scale) / var(--page-zoom)), calc(10vw * var(--ui-scale))); }
+  .size-picks button,
+  .set-btn,
+  .rotate-choice { min-height: clamp(48px, calc(16.5vw * var(--ui-scale)), calc(3.3rem * var(--ui-scale) / var(--page-zoom))); font-size: min(calc(1.2rem * var(--ui-scale) / var(--page-zoom)), calc(6vw * var(--ui-scale))); }
+  .settings-body { padding-top: calc(0.45rem + env(safe-area-inset-top)); }
+}
+
+</style>
+</head>
+<body>
+  <div class="app">
+    <h1 class="sr-only">SB-Lupe</h1>
+    <p id="app-desc" class="sr-only">Kamera-Lupe für kleines Schrift. Das Bild füllt den Bildschirm. Darüber liegt der Zoomregler, darunter eine Zeile mit großen Tasten. Die Taste mit dem Namen der Darstellung schaltet bei jedem Tipp zur nächsten.</p>
+    <main class="stage" aria-describedby="app-desc">
+      <div id="banner" class="banner" hidden>
+        <p id="banner-text"></p>
+        <button type="button" id="retry">Erneut versuchen</button>
+      </div>
+      <div class="view" id="view-wrap">
+        <video id="video" autoplay playsinline muted disablepictureinpicture></video>
+        <canvas id="view"></canvas>
+        <p id="zoom-overlay" class="zoom-overlay" aria-hidden="true">1,0×</p>
+        <p id="mode-hint" class="mode-hint" aria-hidden="true"></p>
+        <div id="install-hint" class="install-hint" hidden>
+          <p id="install-hint-text"></p>
+          <button type="button" id="install-hint-ok">OK</button>
+        </div>
+        <div id="focus-ring" class="focus-ring" aria-hidden="true"></div>
+        <p id="cam-debug" class="cam-debug" hidden></p>
+        <div id="reading-guide" class="reading-guide" hidden>
+          <div class="guide-shade guide-shade-top"></div>
+          <div class="guide-window"></div>
+          <div class="guide-shade guide-shade-bottom"></div>
+          <div class="guide-handle" id="guide-handle">
+            <div class="guide-grip" id="guide-grip" role="slider" tabindex="0" aria-label="Lesezeile verschieben" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+              <svg viewBox="0 0 24 40" aria-hidden="true"><path fill="currentColor" d="M12 2 4 12h16L12 2zm0 36 8-10H4l8 10z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <div class="dock">
+      <div class="zoom-row" id="zoom-row">
+        <div class="slider-line">
+          <span id="zoom-min" class="zoom-end" aria-hidden="true">1x</span>
+          <label for="zoom-slider" class="sr-only">Zoomstufe</label>
+          <input type="range" id="zoom-slider" min="1" max="10" step="0.05" value="1" aria-label="Zoomstufe" aria-valuetext="1,0× Zoom">
+          <span id="zoom-max" class="zoom-end" aria-hidden="true">10x</span>
+        </div>
+      </div>
+      <nav class="bar" id="bar" aria-label="Werkzeuge und Darstellung">
+        <p class="sr-only">Eine Zeile mit großen Tasten. Die erste Taste wechselt die Darstellung. Am Ende liegt Einstellungen.</p>
+        <div class="more more-left" aria-hidden="true">‹</div>
+        <div class="more more-right" aria-hidden="true">›</div>
+        <div class="bar-scroll" id="bar-scroll"></div>
+      </nav>
+    </div>
+    <div id="live" class="sr-only" aria-live="polite"></div>
+    <div id="settings" class="settings" hidden>
+      <div class="settings-body">
+        <h2 id="settings-title" tabindex="-1">Einstellungen</h2>
+
+        <section id="install-section">
+          <button type="button" class="set-btn" id="install-app">App installieren</button>
+          <p class="settings-lead" id="install-note" hidden></p>
+        </section>
+
+        <section>
+          <h3>Schriftgröße</h3>
+          <p class="settings-lead">Größe der Tasten und der Texte. Normal entspricht der Ansicht ohne extra Vergrößerung.</p>
+          <div class="rotate-picks" role="radiogroup" aria-label="Schriftgröße">
+            <button type="button" class="rotate-choice" role="radio" data-text="normal" aria-checked="true">Normal</button>
+            <button type="button" class="rotate-choice" role="radio" data-text="gross" aria-checked="false">Groß</button>
+            <button type="button" class="rotate-choice" role="radio" data-text="sehr-gross" aria-checked="false">Sehr groß</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>Bildmodi auswählen</h3>
+          <p class="settings-lead">Nur angehakte Modi erscheinen auf der Darstellungstaste. Normal bleibt immer eingeschaltet.</p>
+          <div id="mode-picks"></div>
+        </section>
+
+        <section>
+          <h3>Lesezeile</h3>
+          <div class="set-row">
+            <span id="guide-label">Lesezeile</span>
+            <button type="button" class="switch" id="guide-switch" role="switch" aria-checked="false" aria-labelledby="guide-label"></button>
+          </div>
+          <p class="settings-lead">Höhe des freien Streifens in der Mitte.</p>
+          <div class="size-picks" role="group" aria-label="Höhe der Lesezeile">
+            <button type="button" data-size="klein" aria-pressed="false">Klein</button>
+            <button type="button" data-size="mittel" aria-pressed="true">Mittel</button>
+            <button type="button" data-size="gross" aria-pressed="false">Groß</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>Helligkeit und Kontrast</h3>
+          <label class="slider-label" for="set-brightness">Helligkeit <span id="bright-value">100 %</span></label>
+          <div class="menu-slider">
+            <button type="button" class="step-btn" id="bright-down" aria-label="Helligkeit verringern">−</button>
+            <div class="slider-field">
+              <input class="set-slider" id="set-brightness" type="range" min="40" max="180" step="5" value="100" aria-valuetext="100 Prozent">
+            </div>
+            <button type="button" class="step-btn" id="bright-up" aria-label="Helligkeit erhöhen">+</button>
+          </div>
+          <label class="slider-label" for="set-contrast">Kontrast <span id="contrast-value">100 %</span></label>
+          <div class="menu-slider">
+            <button type="button" class="step-btn" id="contrast-down" aria-label="Kontrast verringern">−</button>
+            <div class="slider-field">
+              <input class="set-slider" id="set-contrast" type="range" min="40" max="200" step="5" value="100" aria-valuetext="100 Prozent">
+            </div>
+            <button type="button" class="step-btn" id="contrast-up" aria-label="Kontrast erhöhen">+</button>
+          </div>
+          <button type="button" class="set-btn" id="set-reset">Zurücksetzen</button>
+        </section>
+
+        <section>
+          <h3>Kamera</h3>
+          <button type="button" class="set-btn" id="set-switch">Kamera wechseln</button>
+          <p class="settings-lead" id="camera-note" hidden>Nur eine Kamera gefunden.</p>
+          <div class="set-row" id="focus-row">
+            <span id="focus-label">Scharfstellen per Fingertipp</span>
+            <button type="button" class="switch" id="focus-switch" role="switch" aria-checked="false" aria-labelledby="focus-label"></button>
+          </div>
+          <p class="settings-lead" id="focus-note" hidden>Auf diesem Gerät nicht verfügbar.</p>
+        </section>
+
+        <section>
+          <h3>Drehen</h3>
+          <p class="settings-lead">Wann sich die Lupe mit dem Handy drehen darf.</p>
+          <div class="rotate-picks" role="radiogroup" aria-label="Drehen">
+            <button type="button" class="rotate-choice" role="radio" data-rotate="follow" aria-checked="true">Immer mitdrehen</button>
+            <button type="button" class="rotate-choice" role="radio" data-rotate="guide" aria-checked="false">Nur mit Lesezeile mitdrehen</button>
+            <button type="button" class="rotate-choice" role="radio" data-rotate="lock" aria-checked="false">Nicht drehen</button>
+          </div>
+        </section>
+
+        <section>
+          <div class="set-row">
+            <span id="remember-label">Letzte Einstellung beim Start merken</span>
+            <button type="button" class="switch" id="remember-switch" role="switch" aria-checked="false" aria-labelledby="remember-label"></button>
+          </div>
+          <p class="settings-lead">Wenn an, startet die Lupe mit dem letzten Bildmodus, Zoom, der Lesezeile samt Position, Helligkeit und Kontrast. Licht, Standbild und die Rückkamera starten immer neu.</p>
+        </section>
+      </div>
+      <div class="settings-footer">
+        <button type="button" class="set-btn settings-done" id="settings-done">Fertig</button>
+      </div>
+    </div>
+  </div>
+  <noscript>
+    <p class="noscript">SB-Lupe braucht JavaScript, um die Kamera zu benutzen.</p>
+  </noscript>
+  
+  
+  
+  
+  
+  
+<script>
+/* Darstellungsarten der Lupe.
+   ink = Farbe der dunklen Schrift, paper = Farbe des hellen Papiers.
+   Farbwerte 0..1, damit WebGL und Canvas dieselbe Tabelle nutzen. */
+(function (SBL) {
+  "use strict";
+
+  SBL.KIND = {
+    normal: 0,
+    contrast: 1,
+    invert: 2,
+    duotone: 3,
+    edges: 4,
+    amber: 5,
+    gray: 6,
+    dalton: 7,
+    smooth: 8,
+    smooth2: 9,
+    smooth3: 10,
+    smooth4: 11,
+    smoothBw: 12,
+    smoothYb: 13,
+    smoothAmber: 14,
+    smoothGray: 15
+  };
+
+  function duo(id, label, ink, paper) {
+    return {
+      id: id,
+      label: label,
+      kind: SBL.KIND.duotone,
+      ink: ink,
+      paper: paper
+    };
+  }
+
+  SBL.MODES = [
+    { id: "normal", label: "Normal", kind: SBL.KIND.normal },
+    { id: "invert", label: "Invertieren", kind: SBL.KIND.invert },
+    { id: "contrast", label: "Kontrast", kind: SBL.KIND.contrast },
+    duo("white-black", "Weiß auf Schwarz", [1, 1, 1], [0, 0, 0]),
+    { id: "white-black-smooth", label: "Weiß auf Schwarz glatt", kind: SBL.KIND.smooth },
+    { id: "white-black-smooth-2", label: "2 w auf s glatt", kind: SBL.KIND.smooth2 },
+    { id: "white-black-smooth-3", label: "3 w auf s glatt", kind: SBL.KIND.smooth3 },
+    { id: "white-black-smooth-4", label: "4 w auf s glatt", kind: SBL.KIND.smooth4 },
+    duo("black-white", "Schwarz auf Weiß", [0, 0, 0], [1, 1, 1]),
+    { id: "black-white-smooth", label: "Schwarz auf Weiß glatt", kind: SBL.KIND.smoothBw, ink: [0, 0, 0], paper: [1, 1, 1] },
+    duo("yellow-black", "Gelb auf Schwarz", [1, 0.9, 0.1], [0, 0, 0]),
+    duo("black-yellow", "Schwarz auf Gelb", [0, 0, 0], [1, 0.93, 0.29]),
+    duo("white-blue", "Weiß auf Blau", [1, 1, 1], [0, 0.2, 0.6]),
+    duo("green-black", "Grün auf Schwarz", [0.72, 1, 0.25], [0, 0, 0]),
+    duo("yellow-blue", "Gelb auf Blau", [1, 0.88, 0.08], [0.02, 0.1, 0.36]),
+    { id: "yellow-blue-smooth", label: "Gelb auf Blau glatt", kind: SBL.KIND.smoothYb, ink: [1, 0.88, 0.08], paper: [0.02, 0.1, 0.36] },
+    { id: "amber", label: "Bernstein", kind: SBL.KIND.amber },
+    { id: "amber-smooth", label: "Bernstein glatt", kind: SBL.KIND.smoothAmber },
+    { id: "gray", label: "Graustufen", kind: SBL.KIND.gray },
+    { id: "gray-smooth", label: "Graustufen glatt", kind: SBL.KIND.smoothGray },
+    { id: "red-green", label: "Farbhilfe Rot-Grün", kind: SBL.KIND.dalton },
+    duo("black-lightgreen", "Schwarz auf Hellgrün", [0, 0, 0], [0.72, 0.98, 0.62]),
+    duo("black-lightblue", "Schwarz auf Hellblau", [0, 0, 0], [0.62, 0.86, 1]),
+    { id: "edges", label: "Kanten", kind: SBL.KIND.edges }
+  ];
+
+  SBL.modeById = function (id) {
+    for (var i = 0; i < SBL.MODES.length; i += 1) {
+      if (SBL.MODES[i].id === id) return SBL.MODES[i];
+    }
+    return SBL.MODES[0];
+  };
+
+  SBL.formatZoom = function (value) {
+    var rounded = Math.round(value * 10) / 10;
+    return rounded.toFixed(1).replace(".", ",") + "×";
+  };
+})(window.SBL = window.SBL || {});
+
+/* Standbild einer Packungsbeilage, falls keine Kamera da ist.
+   So lassen sich Zoom und Farbmodi auch am Schreibtisch prüfen. */
+(function (SBL) {
+  "use strict";
+
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    var words = text.split(" ");
+    var line = "";
+    var cursor = y;
+    for (var i = 0; i < words.length; i += 1) {
+      var attempt = line ? line + " " + words[i] : words[i];
+      if (ctx.measureText(attempt).width > maxWidth && line) {
+        ctx.fillText(line, x, cursor);
+        line = words[i];
+        cursor += lineHeight;
+      } else {
+        line = attempt;
+      }
+    }
+    if (line) ctx.fillText(line, x, cursor);
+    return cursor + lineHeight;
+  }
+
+  SBL.createDemoSource = function () {
+    var canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1440;
+    var ctx = canvas.getContext("2d");
+    var font = "Arial, 'DejaVu Sans', 'Liberation Sans', sans-serif";
+
+    ctx.fillStyle = "#f4f0e6";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#102a56";
+    ctx.fillRect(0, 0, canvas.width, 168);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 78px " + font;
+    ctx.fillText("Beipackzettel", 64, 108);
+
+    ctx.fillStyle = "#1a1a1a";
+    ctx.font = "700 52px " + font;
+    ctx.fillText("Kleingedrucktes lesen", 64, 250);
+
+    ctx.font = "400 36px " + font;
+    var body = "Halten Sie das Telefon über den Text. Mit dem Regler oder mit zwei Fingern stellen Sie die Vergrößerung ein. Die Darstellungstaste ändert nur die Farben, nicht das Blatt.";
+    var y = wrapText(ctx, body, 64, 330, 950, 52);
+
+    ctx.font = "700 34px " + font;
+    ctx.fillText("Dosierung", 64, y + 20);
+    y += 70;
+    ctx.font = "400 32px " + font;
+    var rows = [
+      "Morgens    1 Tablette    mit Wasser",
+      "Mittags    1 Tablette    nach dem Essen",
+      "Abends     1 Tablette    vor dem Schlafen"
+    ];
+    for (var r = 0; r < rows.length; r += 1) {
+      ctx.fillText(rows[r], 64, y);
+      y += 48;
+    }
+
+    y += 24;
+    ctx.font = "400 26px " + font;
+    ctx.fillStyle = "#222";
+    var small = "Sehr kleine Zeile: Nebenwirkungen können Schwindel, trockene Augen und Lichtempfindlichkeit sein. Bei Unsicherheit die Packung in die Apotheke mitnehmen. Charge AB-2048, haltbar bis 08/2028.";
+    y = wrapText(ctx, small, 64, y, 950, 38);
+
+    ctx.fillStyle = "#111";
+    var barcodeX = 64;
+    var barcodeY = canvas.height - 220;
+    var widths = [4, 2, 6, 2, 3, 8, 2, 5, 2, 4, 10, 3, 2, 6, 2, 4, 8, 2, 3, 5, 2, 7, 3, 2, 4];
+    for (var b = 0; b < widths.length; b += 1) {
+      var w = widths[b] * 4;
+      if (b % 2 === 0) ctx.fillRect(barcodeX, barcodeY, w, 130);
+      barcodeX += w;
+    }
+
+    ctx.font = "700 28px " + font;
+    ctx.fillText("PZN 12345678", 64, canvas.height - 48);
+
+    return canvas;
+  };
+})(window.SBL = window.SBL || {});
+
+/* Kamera, Hardware-Zoom, Digitalzoom, Licht und Wechsel Rück/Front.
+   iOS Safari kann Zoom und Licht oft nicht; dann bleibt der Digitalzoom. */
+(function (SBL) {
+  "use strict";
+
+  var ZOOM_MAX = 10;
+  var STOPS = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+
+  function fail(code, original) {
+    var error = new Error(code);
+    error.code = code;
+    if (original) error.cause = original;
+    return error;
+  }
+
+  function normalizeError(err) {
+    if (!window.isSecureContext) return fail("insecure", err);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return fail("missing", err);
+    }
+    var name = err && err.name;
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") return fail("denied", err);
+    if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "OverconstrainedError") {
+      return fail("missing", err);
+    }
+    if (name === "NotReadableError" || name === "TrackStartError") return fail("busy", err);
+    if (name === "SecurityError") return fail("insecure", err);
+    return fail("unknown", err);
+  }
+
+  function Camera(video) {
+    this.video = video;
+    this.track = null;
+    this.facing = "environment";
+    this.listeners = [];
+    this.generation = 0;
+    this.zoomChain = Promise.resolve();
+    this.state = {
+      active: false,
+      facing: "environment",
+      zoom: 1,
+      zoomMin: 1,
+      zoomMax: ZOOM_MAX,
+      opticalMax: 1,
+      zoomCapable: false,
+      digitalScale: 1,
+      digital: false,
+      torch: false,
+      torchSupported: false
+    };
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
+    video.playsInline = true;
+    video.muted = true;
+    video.autoplay = true;
+  }
+
+  Camera.prototype.onChange = function (fn) {
+    this.listeners.push(fn);
+    return fn;
+  };
+
+  Camera.prototype.emit = function () {
+    var snapshot = {
+      active: this.state.active,
+      facing: this.state.facing,
+      zoom: this.state.zoom,
+      zoomMin: this.state.zoomMin,
+      zoomMax: this.state.zoomMax,
+      opticalMax: this.state.opticalMax,
+      zoomCapable: this.state.zoomCapable,
+      digitalScale: this.state.digitalScale,
+      digital: this.state.digital,
+      torch: this.state.torch,
+      torchSupported: this.state.torchSupported
+    };
+    for (var i = 0; i < this.listeners.length; i += 1) {
+      this.listeners[i](snapshot);
+    }
+  };
+
+  Camera.prototype.getState = function () {
+    return this.state;
+  };
+
+  Camera.prototype.stop = function () {
+    this.generation += 1;
+    this.state.active = false;
+    this.state.torch = false;
+    if (this.video.srcObject) {
+      var tracks = this.video.srcObject.getTracks();
+      for (var i = 0; i < tracks.length; i += 1) tracks[i].stop();
+      this.video.srcObject = null;
+    }
+    this.track = null;
+    this.emit();
+  };
+
+  Camera.prototype.start = function () {
+    var self = this;
+    if (!window.isSecureContext) return Promise.reject(fail("insecure"));
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject(fail("missing"));
+    }
+    var generation = this.generation + 1;
+    this.generation = generation;
+    this.stopTracksOnly();
+
+    return this.openStream(this.facing).then(function (stream) {
+      if (generation !== self.generation) {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+        return;
+      }
+        self.video.srcObject = stream;
+        self.track = stream.getVideoTracks()[0] || null;
+        self.rememberTrack(self.track);
+        self.state.active = true;
+        self.state.facing = self.facing;
+        self.state.torch = false;
+      self.video.onloadedmetadata = function () {
+        if (generation !== self.generation) return;
+        self.readCapabilities();
+      };
+      if (self.track) {
+        self.track.addEventListener("unmute", function () {
+          if (generation !== self.generation) return;
+          self.readCapabilities();
+        });
+      }
+      return self.waitUntilPlaying().then(function () {
+        if (generation !== self.generation) return;
+        self.readCapabilities();
+      });
+    }).catch(function (err) {
+      if (generation === self.generation) {
+        self.state.active = false;
+        self.emit();
+      }
+      if (err && err.code) throw err;
+      throw normalizeError(err);
+    });
+  };
+
+  Camera.prototype.stopTracksOnly = function () {
+    if (this.video.srcObject) {
+      var tracks = this.video.srcObject.getTracks();
+      for (var i = 0; i < tracks.length; i += 1) tracks[i].stop();
+      this.video.srcObject = null;
+    }
+    this.track = null;
+    this.state.active = false;
+    this.capSignature = "";
+  };
+
+  /* Obergrenze 2560×1440: 4K jedes Bild in WebGL kostet auf schwachen Handys zu viel. */
+  SBL.resolutionLadder = [[2560, 1440], [1920, 1080], [1280, 720]];
+
+  SBL.cameraHasZoomOrTorch = function (caps) {
+    if (!caps) return false;
+    var zoom = caps.zoom;
+    if (zoom && typeof zoom.max === "number" && zoom.max > (zoom.min || 1) + 0.05) return true;
+    return caps.torch === true;
+  };
+
+  /* Nur herunterstufen, wenn die kleinere Auflösung Zoom oder Licht hat und die große nicht. */
+  SBL.preferLowerForZoom = function (highCaps, lowCaps) {
+    if (SBL.cameraHasZoomOrTorch(highCaps)) return false;
+    return SBL.cameraHasZoomOrTorch(lowCaps);
+  };
+
+  Camera.prototype.trackCaps = function (track) {
+    try { return track && track.getCapabilities ? track.getCapabilities() || {} : {}; } catch (err) { return {}; }
+  };
+
+  Camera.prototype.stopStream = function (stream) {
+    if (!stream) return;
+    stream.getTracks().forEach(function (track) { try { track.stop(); } catch (err) {} });
+  };
+
+  SBL.cameraReportsControls = function (caps) {
+    if (!caps) return false;
+    var key;
+    for (key in caps) {
+      if (Object.prototype.hasOwnProperty.call(caps, key)) return true;
+    }
+    return false;
+  };
+
+  /* Zweite Kamera nicht parallel öffnen: viele Handys blockieren das.
+     Die laufende Spur wird stufenweise verkleinert und nur behalten,
+     wenn Zoom oder Licht dadurch dazukommen. Sonst wieder die hohe Stufe. */
+  Camera.prototype.keepZoomOrTorch = function (stream, index) {
+    var self = this;
+    var ladder = SBL.resolutionLadder;
+    var track = stream.getVideoTracks()[0];
+    var caps = this.trackCaps(track);
+    if (!track || !track.applyConstraints || index >= ladder.length - 1) return Promise.resolve(stream);
+    if (!SBL.cameraReportsControls(caps) || SBL.cameraHasZoomOrTorch(caps)) return Promise.resolve(stream);
+    var high = ladder[index];
+
+    function widthOf() {
+      try { return (track.getSettings() || {}).width || 0; } catch (err) { return 0; }
+    }
+
+    function restore() {
+      return track.applyConstraints({
+        width: { ideal: high[0] },
+        height: { ideal: high[1] }
+      }).then(function () { return stream; }).catch(function () { return stream; });
+    }
+
+    function tryIndex(i) {
+      if (i >= ladder.length) return restore();
+      var before = widthOf();
+      var size = ladder[i];
+      return track.applyConstraints({
+        width: { ideal: size[0] },
+        height: { ideal: size[1] }
+      }).then(function () {
+        if (SBL.cameraHasZoomOrTorch(self.trackCaps(track))) return stream;
+        var after = widthOf();
+        if (before && after && after >= before - 16) return restore();
+        return tryIndex(i + 1);
+      }).catch(function () { return restore(); });
+    }
+
+    return tryIndex(index + 1);
+  };
+
+  Camera.prototype.openSized = function (baseVideo, index) {
+    var ladder = SBL.resolutionLadder;
+    if (index > ladder.length) return Promise.reject(new Error("missing"));
+    var video = {};
+    var key;
+    for (key in baseVideo) {
+      if (Object.prototype.hasOwnProperty.call(baseVideo, key)) video[key] = baseVideo[key];
+    }
+    if (index < ladder.length) {
+      video.width = { ideal: ladder[index][0] };
+      video.height = { ideal: ladder[index][1] };
+    }
+    return navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+  };
+
+  Camera.prototype.openPreferredAt = function (baseVideo, index) {
+    var self = this;
+    return this.openSized(baseVideo, index).then(function (stream) {
+      return self.keepZoomOrTorch(stream, index);
+    });
+  };
+
+  Camera.prototype.openPreferred = function (baseVideo) {
+    var self = this;
+    function attempt(index) {
+      return self.openPreferredAt(baseVideo, index).catch(function (err) {
+        if (err && err.name) self.lastError = err.name;
+        if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return Promise.reject(err);
+        if (index >= SBL.resolutionLadder.length) return Promise.reject(err || new Error("missing"));
+        return attempt(index + 1);
+      });
+    }
+    return attempt(0);
+  };
+
+  Camera.prototype.openStream = function (facing) {
+    var self = this;
+    return this.openPreferred({ facingMode: { exact: facing } }).catch(function (err) {
+      if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return Promise.reject(err);
+      return self.openPreferred({ facingMode: facing });
+    }).catch(function (err) {
+      if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return Promise.reject(err);
+      if (facing === "environment") {
+        return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      return Promise.reject(err || new Error("missing"));
+    });
+  };
+
+  Camera.prototype.readCapabilities = function () {
+    var track = this.track;
+    if (!track || typeof track.getCapabilities !== "function") {
+      this.state.zoomCapable = false;
+      this.state.torchSupported = false;
+      this.state.opticalMax = 1;
+      this.emit();
+      return;
+    }
+    var caps;
+    try {
+      caps = track.getCapabilities() || {};
+    } catch (err) {
+      caps = {};
+    }
+
+    this.captureFrameInfo(track);
+    var zoomCaps = caps.zoom || {};
+    var signature = [
+      zoomCaps.min, zoomCaps.max, zoomCaps.step, caps.torch === true
+    ].join("|");
+    if (signature === this.capSignature) return;
+    this.capSignature = signature;
+
+    if (caps.zoom && typeof caps.zoom.max === "number") {
+      this.state.zoomCapable = true;
+      this.state.zoomMin = caps.zoom.min || 1;
+      this.state.opticalMax = caps.zoom.max;
+      this.state.zoomMax = Math.max(caps.zoom.max, ZOOM_MAX);
+      this.zoomStep = caps.zoom.step || 0;
+      this.opticalMin = caps.zoom.min || 1;
+    } else {
+      this.state.zoomCapable = false;
+      this.state.zoomMin = 1;
+      this.state.opticalMax = 1;
+      this.state.zoomMax = ZOOM_MAX;
+      this.zoomStep = 0;
+      this.opticalMin = 1;
+    }
+
+    this.state.torchSupported = caps.torch === true;
+
+    if (caps.focusMode && caps.focusMode.indexOf("continuous") !== -1) {
+      track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(function () {});
+    }
+
+    this.setZoom(this.state.zoom);
+  };
+
+  Camera.prototype.setFacing = function (facing) {
+    if (facing === "user" || facing === "environment") this.facing = facing;
+  };
+
+  Camera.prototype.waitUntilPlaying = function () {
+    var video = this.video;
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        resolve();
+      }
+      Promise.resolve(video.play()).then(finish).catch(finish);
+      setTimeout(finish, 1200);
+    });
+  };
+
+  Camera.prototype.clampZoom = function (value) {
+    var min = this.state.zoomMin;
+    var max = this.state.zoomMax;
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  };
+
+  Camera.prototype.setZoom = function (value) {
+    var next = this.clampZoom(value);
+    this.state.zoom = next;
+    this.updateDigitalFlag(next);
+    this.emit();
+    var self = this;
+    this.zoomChain = this.zoomChain.then(function () {
+      return self.applyZoom(self.state.zoom);
+    }).catch(function () {});
+    return next;
+  };
+
+  Camera.prototype.stepZoom = function (direction) {
+    var current = this.state.zoom;
+    var target = null;
+    if (direction > 0) {
+      for (var i = 0; i < STOPS.length; i += 1) {
+        if (STOPS[i] > current + 0.05 && STOPS[i] <= this.state.zoomMax + 0.001) {
+          target = STOPS[i];
+          break;
+        }
+      }
+      if (target === null) target = Math.min(this.state.zoomMax, current * 1.25);
+    } else {
+      for (var j = STOPS.length - 1; j >= 0; j -= 1) {
+        if (STOPS[j] < current - 0.05 && STOPS[j] >= this.state.zoomMin - 0.001) {
+          target = STOPS[j];
+          break;
+        }
+      }
+      if (target === null) target = Math.max(this.state.zoomMin, current / 1.25);
+    }
+    return this.setZoom(target);
+  };
+
+  Camera.prototype.setFreezeZoom = function (on) {
+    this.freezeZoom = !!on;
+    this.setZoom(this.state.zoom);
+  };
+
+  Camera.prototype.updateDigitalFlag = function (value) {
+    var hardware = this.freezeZoom ? this.state.zoomMin : Math.min(value, this.state.opticalMax);
+    this.hardwareZoom = hardware;
+    var scale = (!this.freezeZoom && this.state.zoomCapable) ? value / Math.max(hardware, 0.01) : value / Math.max(this.state.zoomMin, 0.01);
+    if (!isFinite(scale) || scale < 1) scale = 1;
+    this.state.digitalScale = scale;
+    this.state.digital = scale > 1.02;
+  };
+
+  Camera.prototype.applyZoom = function (value) {
+    var self = this;
+    this.updateDigitalFlag(value);
+    if (this.freezeZoom || !this.state.zoomCapable || !this.track) {
+      this.emit();
+      return Promise.resolve();
+    }
+    var hardware = Math.min(value, this.state.opticalMax);
+    hardware = this.snapHardware(hardware);
+    return this.track.applyConstraints({ advanced: [{ zoom: hardware }] }).then(function () {
+      self.updateDigitalFlag(self.state.zoom);
+      self.captureFrameInfo(self.track);
+      self.emit();
+    }).catch(function () {
+      self.state.zoomCapable = false;
+      self.state.opticalMax = 1;
+      self.updateDigitalFlag(self.state.zoom);
+      self.emit();
+    });
+  };
+
+  Camera.prototype.snapHardware = function (value) {
+    if (!this.zoomStep) return value;
+    var snapped = this.opticalMin + Math.round((value - this.opticalMin) / this.zoomStep) * this.zoomStep;
+    if (snapped < this.opticalMin) snapped = this.opticalMin;
+    if (snapped > this.state.opticalMax) snapped = this.state.opticalMax;
+    return snapped;
+  };
+
+  Camera.prototype.focusCapabilities = function () {
+    var track = this.track;
+    if (!track || typeof track.getCapabilities !== "function") return { supported: false, focusMode: "" };
+    var caps = {};
+    try { caps = track.getCapabilities() || {}; } catch (err) { return { supported: false, focusMode: "" }; }
+    var modes = caps.focusMode || [];
+    var poi = caps.pointsOfInterest;
+    var poiOk = poi === true || (poi && typeof poi === "object");
+    var focusMode = "";
+    if (modes.indexOf("single-shot") !== -1) focusMode = "single-shot";
+    else if (modes.indexOf("continuous") !== -1) focusMode = "continuous";
+    return { supported: !!(poiOk && focusMode && this.state.active), focusMode: focusMode };
+  };
+
+  Camera.prototype.focusAt = function (x, y) {
+    var info = this.focusCapabilities();
+    if (!info.supported || !this.track) return Promise.resolve(false);
+    var point = {
+      x: x < 0 ? 0 : (x > 1 ? 1 : x),
+      y: y < 0 ? 0 : (y > 1 ? 1 : y)
+    };
+    var track = this.track;
+    function attempt(advanced) {
+      return track.applyConstraints({ advanced: [advanced] });
+    }
+    return attempt({ pointsOfInterest: [point], focusMode: info.focusMode }).then(function () {
+      return true;
+    }).catch(function () {
+      return attempt({ pointsOfInterest: [point] }).then(function () {
+        return true;
+      }).catch(function () {
+        return false;
+      });
+    });
+  };
+
+  Camera.prototype.toggleTorch = function () {
+    var self = this;
+    if (!this.track || !this.state.torchSupported) {
+      return Promise.reject(fail("torch"));
+    }
+    var next = !this.state.torch;
+    return this.track.applyConstraints({ advanced: [{ torch: next }] }).then(function () {
+      self.state.torch = next;
+      self.emit();
+      return next;
+    }).catch(function (err) {
+      throw fail("torch", err);
+    });
+  };
+
+  Camera.prototype.captureFrameInfo = function (track) {
+    var settings = {};
+    try { settings = track && track.getSettings ? track.getSettings() : {}; } catch (err) {}
+    if (settings.width) this.frameWidth = settings.width;
+    if (settings.height) this.frameHeight = settings.height;
+    if (typeof settings.zoom === "number") this.hardwareZoom = settings.zoom;
+  };
+
+  Camera.prototype.trackInfo = function (track) {
+    var settings = {};
+    try { settings = track && track.getSettings ? track.getSettings() : {}; } catch (err) {}
+    return {
+      deviceId: settings.deviceId || "",
+      facingMode: settings.facingMode || ""
+    };
+  };
+
+  Camera.prototype.rememberTrack = function (track) {
+    var info = this.trackInfo(track);
+    if (info.deviceId) this.deviceId = info.deviceId;
+    this.reportedFacing = info.facingMode || "";
+    try { this.trackLabel = (track && track.label) || ""; } catch (err) { this.trackLabel = ""; }
+  };
+
+  Camera.prototype.labelFacing = function (label) {
+    var text = label || "";
+    if (/front|user|face|vorne|selfie|facetime/i.test(text)) return "user";
+    if (/back|rear|environment|rück|rueck|hinten/i.test(text)) return "environment";
+    return "";
+  };
+
+  Camera.prototype.listCameras = function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      return Promise.resolve([]);
+    }
+    return navigator.mediaDevices.enumerateDevices().then(function (list) {
+      var seen = {};
+      var cameras = [];
+      var i;
+      for (i = 0; i < list.length; i += 1) {
+        if (list[i].kind !== "videoinput" || !list[i].deviceId || seen[list[i].deviceId]) continue;
+        seen[list[i].deviceId] = true;
+        cameras.push(list[i]);
+      }
+      return cameras;
+    }).catch(function () { return []; });
+  };
+
+  Camera.prototype.releaseHardware = function () {
+    var video = this.video;
+    var tracks = video.srcObject && video.srcObject.getTracks ? video.srcObject.getTracks() : [];
+    var i;
+    for (i = 0; i < tracks.length; i += 1) {
+      try { tracks[i].stop(); } catch (err) {}
+    }
+    video.srcObject = null;
+    try { video.pause(); } catch (err) {}
+    this.track = null;
+    this.state.active = false;
+    this.state.torch = false;
+    this.capSignature = "";
+    return new Promise(function (resolve) { setTimeout(resolve, 300); });
+  };
+
+  Camera.prototype.tryConstraints = function (attempts) {
+    function step(index, lastError) {
+      if (index >= attempts.length) return Promise.reject(lastError || new Error("missing"));
+      return navigator.mediaDevices.getUserMedia(attempts[index]).catch(function (err) {
+        if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return Promise.reject(err);
+        return step(index + 1, err);
+      });
+    }
+    return step(0, null);
+  };
+
+  Camera.prototype.useStream = function (stream, facing, generation) {
+    var self = this;
+    if (generation !== this.generation) {
+      stream.getTracks().forEach(function (track) { try { track.stop(); } catch (err) {} });
+      return Promise.resolve(false);
+    }
+    this.video.srcObject = stream;
+    this.track = stream.getVideoTracks()[0] || null;
+    this.rememberTrack(this.track);
+    if (!this.facing && facing) this.facing = facing;
+    this.state.active = true;
+    this.state.facing = this.facing;
+    this.state.torch = false;
+    this.capSignature = "";
+    this.video.onloadedmetadata = function () {
+      if (generation !== self.generation) return;
+      self.readCapabilities();
+    };
+    if (this.track) {
+      this.track.addEventListener("unmute", function () {
+        if (generation !== self.generation) return;
+        self.readCapabilities();
+      });
+    }
+    return this.waitUntilPlaying().then(function () {
+      if (generation !== self.generation) return false;
+      self.readCapabilities();
+      return true;
+    });
+  };
+
+  Camera.prototype.openById = function (deviceId) {
+    var self = this;
+    return this.openPreferred({ deviceId: { exact: deviceId } }).catch(function (err) {
+      if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return Promise.reject(err);
+      return self.openPreferred({ deviceId: deviceId });
+    });
+  };
+
+  Camera.prototype.acquireDifferentCamera = function (desiredFacing, oldFacing, oldId) {
+    var self = this;
+    var bases = [
+      { facingMode: { exact: desiredFacing } },
+      { facingMode: { ideal: desiredFacing } },
+      { facingMode: desiredFacing }
+    ];
+
+    function sameCamera(info) {
+      if (oldId && info.deviceId && info.deviceId === oldId) return true;
+      if (info.facingMode && oldFacing && info.facingMode === oldFacing && (!info.deviceId || info.deviceId === oldId)) return true;
+      return false;
+    }
+
+    function tryFacing(index) {
+      if (index >= bases.length) return Promise.resolve(null);
+      return self.openPreferred(bases[index]).then(function (stream) {
+        var info = self.trackInfo(stream.getVideoTracks()[0]);
+        if (!sameCamera(info)) {
+          return { stream: stream, facing: info.facingMode || desiredFacing };
+        }
+        self.stopStream(stream);
+        return tryFacing(index + 1);
+      }).catch(function (err) {
+        if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return Promise.reject(err);
+        return tryFacing(index + 1);
+      });
+    }
+
+    return tryFacing(0).then(function (found) {
+      if (found) return found;
+      return self.listCameras().then(function (cameras) {
+        if (cameras.length < 2) return null;
+        var start = 0;
+        var i;
+        for (i = 0; i < cameras.length; i += 1) {
+          if (cameras[i].deviceId === oldId) start = i;
+        }
+        function tryDevice(step) {
+          if (step >= cameras.length) return Promise.resolve(null);
+          var device = cameras[(start + 1 + step) % cameras.length];
+          if (!device.deviceId || device.deviceId === oldId) return tryDevice(step + 1);
+          return self.openById(device.deviceId).then(function (stream) {
+            var info = self.trackInfo(stream.getVideoTracks()[0]);
+            var id = info.deviceId || device.deviceId;
+            if (oldId && id === oldId) {
+              stream.getTracks().forEach(function (track) { try { track.stop(); } catch (err) {} });
+              return tryDevice(step + 1);
+            }
+            var facing = info.facingMode;
+            if (facing !== "user" && facing !== "environment") {
+              facing = /front|user|face|vorne|selfie/i.test(device.label || "") ? "user" : desiredFacing;
+            }
+            return { stream: stream, facing: facing };
+          }).catch(function (err) {
+            if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return Promise.reject(err);
+            return tryDevice(step + 1);
+          });
+        }
+        return tryDevice(0);
+      });
+    });
+  };
+
+  Camera.prototype.restoreCamera = function (facing, deviceId, generation) {
+    var self = this;
+    var bases = [];
+    if (deviceId) bases.push({ deviceId: { exact: deviceId } });
+    if (facing) {
+      bases.push({ facingMode: { exact: facing } });
+      bases.push({ facingMode: { ideal: facing } });
+    }
+    function step(index) {
+      if (index >= bases.length) {
+        return navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(function (stream) {
+          return self.useStream(stream, facing, generation);
+        }).catch(function () {});
+      }
+      return self.openPreferred(bases[index]).then(function (stream) {
+        return self.useStream(stream, facing, generation);
+      }).catch(function (err) {
+        if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) return;
+        return step(index + 1);
+      });
+    }
+    return step(0);
+  };
+
+  Camera.prototype.playVideo = function () {
+    var video = this.video;
+    if (!video) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        resolve();
+      }
+      try {
+        var result = video.play();
+        if (result && typeof result.then === "function") result.then(finish).catch(finish);
+        else finish();
+      } catch (err) {
+        finish();
+      }
+      setTimeout(finish, 400);
+    });
+  };
+
+  /* Reine Entscheidung, ohne Browser: Erfolg, wenn die Geräte-ID wechselt
+     oder facingMode die gewünschte Seite ist. Sonst die andere deviceId. */
+  SBL.planCameraSwitch = function (state) {
+    var desired = state.desired === "user" ? "user" : "environment";
+    var oldId = state.oldId || "";
+    var gotId = state.gotId || "";
+    var gotFacing = state.gotFacing || "";
+    var devices = state.devices || [];
+    if ((gotId && oldId && gotId !== oldId) || gotFacing === desired || gotFacing === "user" && desired === "user") {
+      return { action: "keep", deviceId: gotId };
+    }
+    var other = "";
+    var i;
+    for (i = 0; i < devices.length; i += 1) {
+      var id = devices[i].deviceId || "";
+      if (id && id !== oldId && id !== gotId) {
+        other = id;
+        break;
+      }
+    }
+    if (other) return { action: "use-device", deviceId: other };
+    if (!state.errorName && (gotId || gotFacing)) return { action: "keep", deviceId: gotId };
+    return { action: "fail", deviceId: "" };
+  };
+
+  Camera.prototype.keepOrOther = function (previous, oldId) {
+    var self = this;
+    var now = this.track ? this.trackInfo(this.track) : { deviceId: "", facingMode: "" };
+    return this.listCameras().then(function (devices) {
+      var plan = SBL.planCameraSwitch({
+        desired: self.desiredFacing,
+        oldId: oldId,
+        gotId: now.deviceId,
+        gotFacing: now.facingMode,
+        errorName: self.lastError,
+        devices: devices
+      });
+      if (plan.action !== "use-device") {
+        self.facing = self.desiredFacing;
+        self.state.facing = self.desiredFacing;
+        self.switching = false;
+        return { facing: self.facing };
+      }
+      if (!self.lastError) self.lastError = "SameCamera";
+      return self.releaseHardware().then(function () {
+        return self.openById(plan.deviceId);
+      }).then(function (stream) {
+        return self.useStream(stream, self.desiredFacing, self.generation);
+      }).then(function (ok) {
+        var after = self.track ? self.trackInfo(self.track) : { deviceId: "", facingMode: "" };
+        var switched = ok && ((after.deviceId && after.deviceId !== oldId) || after.facingMode === "user" || after.facingMode === self.desiredFacing);
+        if (!switched) {
+          self.facing = previous;
+          self.state.facing = previous;
+          return self.start().then(function () {
+            self.switching = false;
+            throw fail("switch");
+          });
+        }
+        self.facing = self.desiredFacing;
+        self.state.facing = self.desiredFacing;
+        return self.playVideo().then(function () {
+          self.switching = false;
+          return { facing: self.facing };
+        });
+      });
+    });
+  };
+
+  Camera.prototype.switchFacing = function () {
+    if (this.switching) return Promise.resolve({ facing: this.facing, ignored: true });
+    this.switching = true;
+    var self = this;
+    var previous = this.facing === "user" ? "user" : "environment";
+    var oldId = this.deviceId || "";
+    if (this.track) {
+      var before = this.trackInfo(this.track);
+      if (before.deviceId) oldId = before.deviceId;
+    }
+    /* v7: gewünschte Seite setzen, dann start(). Davor alte Tracks stoppen. */
+    this.facing = previous === "environment" ? "user" : "environment";
+    this.desiredFacing = this.facing;
+    this.lastError = "";
+
+    return this.releaseHardware().then(function () {
+      return self.start();
+    }).then(function () {
+      return self.playVideo();
+    }).then(function () {
+      return self.keepOrOther(previous, oldId);
+    }).catch(function (err) {
+      if (err && err.name) self.lastError = err.name;
+      if (err && err.code === "switch") {
+        self.switching = false;
+        throw err;
+      }
+      if (err && (err.name === "OverconstrainedError" || err.name === "NotFoundError" || err.name === "NotReadableError" || err.code === "missing")) {
+        return self.listCameras().then(function (devices) {
+          var plan = SBL.planCameraSwitch({
+            desired: self.desiredFacing,
+            oldId: oldId,
+            gotId: "",
+            gotFacing: "",
+            errorName: self.lastError,
+            devices: devices
+          });
+          if (plan.action !== "use-device") throw fail("switch");
+          return self.releaseHardware().then(function () {
+            return self.openById(plan.deviceId);
+          });
+        }).then(function (stream) {
+          return self.useStream(stream, self.desiredFacing, self.generation);
+        }).then(function (ok) {
+          if (!ok) throw fail("switch");
+          self.facing = self.desiredFacing;
+          self.state.facing = self.desiredFacing;
+          self.switching = false;
+          return self.playVideo().then(function () { return { facing: self.facing }; });
+        }).catch(function (inner) {
+          if (inner && inner.name) self.lastError = inner.name;
+          self.facing = previous;
+          self.state.facing = previous;
+          return self.start().catch(function () {}).then(function () {
+            self.switching = false;
+            throw fail("switch");
+          });
+        });
+      }
+      self.facing = previous;
+      self.state.facing = previous;
+      return self.start().catch(function () {}).then(function () {
+        self.switching = false;
+        throw fail("switch");
+      });
+    });
+  };
+
+  SBL.Camera = Camera;
+})(window.SBL = window.SBL || {});
+
+/* Zeichnet das Kamerabild (oder die Beispielansicht) mit der gewählten
+   Darstellung. WebGL ist schnell genug fürs Livebild; ohne WebGL
+   übernimmt ein Canvas-2D-Fallback. */
+(function (SBL) {
+  "use strict";
+
+  var VERT = [
+    "attribute vec2 a_pos;",
+    "uniform vec2 u_uvScale;",
+    "uniform vec2 u_pan;",
+    "uniform float u_flip;",
+    "varying vec2 v_uv;",
+    "void main() {",
+    "  gl_Position = vec4(a_pos.x * 2.0 - 1.0, 1.0 - a_pos.y * 2.0, 0.0, 1.0);",
+    "  vec2 uv = (a_pos - 0.5) * u_uvScale + 0.5 + u_pan;",
+    "  uv.y = mix(uv.y, 1.0 - uv.y, u_flip);",
+    "  v_uv = uv;",
+    "}"
+  ].join("\n");
+
+  var FRAG = [
+    "precision mediump float;",
+    "varying vec2 v_uv;",
+    "uniform sampler2D u_tex;",
+    "uniform sampler2D u_illum;",
+    "uniform vec2 u_texel;",
+    "uniform float u_kind;",
+    "uniform float u_mag;",
+    "uniform vec3 u_ink;",
+    "uniform vec3 u_paper;",
+    "float luma(vec3 c) {",
+    "  return dot(c, vec3(0.299, 0.587, 0.114));",
+    "}",
+    "float paperAmount(float y) {",
+    "  float p = smoothstep(0.30, 0.62, y);",
+    "  return smoothstep(0.15, 0.85, p);",
+    "}",
+    "void main() {",
+    "  vec2 uv = v_uv;",
+    "  if (u_mag > 1.02) {",
+    "    vec2 t = max(u_texel, vec2(0.00001));",
+    "    uv = (floor(uv / t) + 0.5) * t;",
+    "  }",
+    "  vec3 c = texture2D(u_tex, uv).rgb;",
+    "  if (u_kind < 0.5) {",
+    "    gl_FragColor = vec4(c, 1.0);",
+    "  } else if (u_kind < 1.5) {",
+    "    vec3 h = clamp((c - 0.45) * 2.6 + 0.5, 0.0, 1.0);",
+    "    gl_FragColor = vec4(h, 1.0);",
+    "  } else if (u_kind < 2.5) {",
+    "    gl_FragColor = vec4(1.0 - c, 1.0);",
+    "  } else if (u_kind < 3.5) {",
+    "    float paper = paperAmount(luma(c));",
+    "    gl_FragColor = vec4(mix(u_ink, u_paper, paper), 1.0);",
+    "  } else if (u_kind < 4.5) {",
+    "    vec2 t = u_texel;",
+    "    float tl = luma(texture2D(u_tex, uv + vec2(-t.x, -t.y)).rgb);",
+    "    float tc = luma(texture2D(u_tex, uv + vec2(0.0, -t.y)).rgb);",
+    "    float tr = luma(texture2D(u_tex, uv + vec2(t.x, -t.y)).rgb);",
+    "    float ml = luma(texture2D(u_tex, uv + vec2(-t.x, 0.0)).rgb);",
+    "    float mr = luma(texture2D(u_tex, uv + vec2(t.x, 0.0)).rgb);",
+    "    float bl = luma(texture2D(u_tex, uv + vec2(-t.x, t.y)).rgb);",
+    "    float bc = luma(texture2D(u_tex, uv + vec2(0.0, t.y)).rgb);",
+    "    float br = luma(texture2D(u_tex, uv + vec2(t.x, t.y)).rgb);",
+    "    float gx = -tl - 2.0 * ml - bl + tr + 2.0 * mr + br;",
+    "    float gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;",
+    "    float edge = smoothstep(0.12, 0.42, length(vec2(gx, gy)));",
+    "    gl_FragColor = vec4(vec3(edge), 1.0);",
+    "  } else if (u_kind < 5.5) {",
+    "    vec3 amber = vec3(",
+    "      dot(c, vec3(0.58, 0.38, 0.06)) + 0.05,",
+    "      dot(c, vec3(0.20, 0.40, 0.04)) + 0.02,",
+    "      dot(c, vec3(0.03, 0.05, 0.08))",
+    "    );",
+    "    gl_FragColor = vec4(clamp(amber, 0.0, 1.0), 1.0);",
+    "  } else if (u_kind < 6.5) {",
+    "    float g = clamp((luma(c) - 0.42) * 1.85 + 0.48, 0.0, 1.0);",
+    "    gl_FragColor = vec4(vec3(g), 1.0);",
+    "  } else if (u_kind < 7.5) {",
+    "    float L = dot(c, vec3(17.8824, 43.5161, 4.11935));",
+    "    float M = dot(c, vec3(3.45565, 27.1554, 3.86714));",
+    "    float S = dot(c, vec3(0.0299566, 0.184309, 1.46709));",
+    "    float Mp = 0.494207 * L + 1.24827 * S;",
+    "    float rp = 0.080944 * L - 0.130504 * Mp + 0.116721 * S;",
+    "    float gp = -0.0102485 * L + 0.0540193 * Mp - 0.113615 * S;",
+    "    float bp = -0.0003653 * L - 0.0041216 * Mp + 0.693511 * S;",
+    "    float er = c.r - rp;",
+    "    float eg = c.g - gp;",
+    "    float eb = c.b - bp;",
+    "    vec3 shifted = vec3(c.r, c.g + 0.7 * er + eg, c.b + 0.7 * er + eb);",
+    "    gl_FragColor = vec4(clamp(shifted, 0.0, 1.0), 1.0);",
+    "  } else if (u_kind < 8.5) {",
+    "    float y = luma(c);",
+    "    float paper = smoothstep(0.42, 0.50, y);",
+    "    gl_FragColor = vec4(vec3(1.0 - paper), 1.0);",
+    "  } else if (u_kind < 11.5) {",
+    "    float y = luma(c);",
+    "    float localBg = texture2D(u_illum, uv).r;",
+    "    float wideBg = (",
+    "      texture2D(u_illum, vec2(0.18, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.50, 0.50)).r +",
+    "      texture2D(u_illum, vec2(0.18, 0.78)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.78)).r",
+    "    ) * 0.2;",
+    "    float gain = clamp(wideBg / max(localBg, 0.20), 0.72, 2.2);",
+    "    y = clamp(y * gain, 0.0, 1.0);",
+    "    float paper = smoothstep(0.42, 0.50, y);",
+    "    gl_FragColor = vec4(vec3(1.0 - paper), 1.0);",
+    "  } else if (u_kind < 13.5) {",
+    "    float y = luma(c);",
+    "    float localBg = texture2D(u_illum, uv).r;",
+    "    float wideBg = (",
+    "      texture2D(u_illum, vec2(0.18, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.50, 0.50)).r +",
+    "      texture2D(u_illum, vec2(0.18, 0.78)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.78)).r",
+    "    ) * 0.2;",
+    "    float gain = clamp(wideBg / max(localBg, 0.20), 0.72, 2.2);",
+    "    y = clamp(y * gain, 0.0, 1.0);",
+    "    float paper = smoothstep(0.42, 0.50, y);",
+    "    gl_FragColor = vec4(mix(u_ink, u_paper, paper), 1.0);",
+    "  } else if (u_kind < 14.5) {",
+    "    float y = luma(c);",
+    "    float localBg = texture2D(u_illum, uv).r;",
+    "    float wideBg = (",
+    "      texture2D(u_illum, vec2(0.18, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.50, 0.50)).r +",
+    "      texture2D(u_illum, vec2(0.18, 0.78)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.78)).r",
+    "    ) * 0.2;",
+    "    float gain = clamp(wideBg / max(localBg, 0.20), 0.72, 2.2);",
+    "    y = clamp(y * gain, 0.0, 1.0);",
+    "    vec3 amber = vec3(y * 1.02 + 0.05, y * 0.64 + 0.02, y * 0.16);",
+    "    gl_FragColor = vec4(clamp(amber, 0.0, 1.0), 1.0);",
+    "  } else {",
+    "    float y = luma(c);",
+    "    float localBg = texture2D(u_illum, uv).r;",
+    "    float wideBg = (",
+    "      texture2D(u_illum, vec2(0.18, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.22)).r +",
+    "      texture2D(u_illum, vec2(0.50, 0.50)).r +",
+    "      texture2D(u_illum, vec2(0.18, 0.78)).r +",
+    "      texture2D(u_illum, vec2(0.82, 0.78)).r",
+    "    ) * 0.2;",
+    "    float gain = clamp(wideBg / max(localBg, 0.20), 0.72, 2.2);",
+    "    y = clamp(y * gain, 0.0, 1.0);",
+    "    gl_FragColor = vec4(vec3(y), 1.0);",
+    "  }",
+    "}"
+  ].join("\n");
+
+  function compile(gl, type, source) {
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      var log = gl.getShaderInfoLog(shader);
+      gl.deleteShader(shader);
+      throw new Error(log || "Shader");
+    }
+    return shader;
+  }
+
+  function coverScale(srcW, srcH, dstW, dstH, zoom) {
+    var srcAspect = srcW / srcH;
+    var dstAspect = dstW / dstH;
+    var scaleX = 1;
+    var scaleY = 1;
+    if (srcAspect > dstAspect) scaleX = dstAspect / srcAspect;
+    else scaleY = srcAspect / dstAspect;
+    var z = zoom > 1 ? zoom : 1;
+    return [scaleX / z, scaleY / z];
+  }
+
+  function sourceSize(source) {
+    if (!source) return null;
+    if (source instanceof HTMLVideoElement) {
+      if (source.readyState < 2 || !source.videoWidth || !source.videoHeight) return null;
+      return [source.videoWidth, source.videoHeight];
+    }
+    if (source.width && source.height) return [source.width, source.height];
+    return null;
+  }
+
+  SBL.coverScale = coverScale;
+  SBL.sourceSize = sourceSize;
+
+  function createGL(canvas) {
+    var gl = canvas.getContext("webgl", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: true,
+      failIfMajorPerformanceCaveat: false,
+      powerPreference: "high-performance"
+    });
+    if (!gl) return null;
+
+    var vert = compile(gl, gl.VERTEX_SHADER, VERT);
+    var frag = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+    var program = gl.createProgram();
+    gl.attachShader(program, vert);
+    gl.attachShader(program, frag);
+    gl.bindAttribLocation(program, 0, "a_pos");
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(program) || "Programm");
+    }
+    gl.useProgram(program);
+
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      0, 0, 1, 0, 0, 1,
+      0, 1, 1, 0, 1, 1
+    ]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255])
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    var loc = {
+      uvScale: gl.getUniformLocation(program, "u_uvScale"),
+      pan: gl.getUniformLocation(program, "u_pan"),
+      flip: gl.getUniformLocation(program, "u_flip"),
+      texel: gl.getUniformLocation(program, "u_texel"),
+      kind: gl.getUniformLocation(program, "u_kind"),
+      ink: gl.getUniformLocation(program, "u_ink"),
+      paper: gl.getUniformLocation(program, "u_paper"),
+      tex: gl.getUniformLocation(program, "u_tex"),
+      illum: gl.getUniformLocation(program, "u_illum"),
+      mag: gl.getUniformLocation(program, "u_mag")
+    };
+    gl.uniform1i(loc.tex, 0);
+    gl.uniform1i(loc.illum, 2);
+    gl.uniform1f(loc.mag, 1);
+    gl.uniform1f(loc.flip, 0);
+    gl.uniform2f(loc.pan, 0, 0);
+    gl.clearColor(0, 0, 0, 1);
+
+    /* Misst einmal, ob die obere Bildzeile oben ankommt. Chrome und Safari
+       legen Videobilder nicht immer gleich in die Textur. */
+    function calibrateOrientation() {
+      var probe = document.createElement("canvas");
+      probe.width = 2;
+      probe.height = 2;
+      var pctx = probe.getContext("2d");
+      pctx.fillStyle = "#ff0000";
+      pctx.fillRect(0, 0, 2, 1);
+      pctx.fillStyle = "#0000ff";
+      pctx.fillRect(0, 1, 2, 1);
+      if (canvas.width < 2 || canvas.height < 2) {
+        canvas.width = 2;
+        canvas.height = 2;
+      }
+      gl.uniform2f(loc.uvScale, 1, 1);
+      gl.uniform1f(loc.kind, 0);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, probe);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      var pixel = new Uint8Array(4);
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      if (pixel[0] + pixel[2] === 0) return;
+      /* readPixels-Ursprung ist unten links. Blau unten heißt: aufrecht. */
+      var needsFlip = pixel[0] > pixel[2];
+      orientationFlip = needsFlip ? 1 : 0;
+      gl.uniform1f(loc.flip, orientationFlip);
+    }
+
+    var orientationFlip = 0;
+
+    calibrateOrientation();
+
+    var source = null;
+    var mode = SBL.MODES[0];
+    var magnification = 1;
+    var panX = 0;
+    var panY = 0;
+    var running = false;
+    var raf = 0;
+    var frameMs = 0;
+
+    function clampPan(scale) {
+      var limitX = Math.max(0, (1 - scale[0]) * 0.5);
+      var limitY = Math.max(0, (1 - scale[1]) * 0.5);
+      if (panX > limitX) panX = limitX;
+      if (panX < -limitX) panX = -limitX;
+      if (panY > limitY) panY = limitY;
+      if (panY < -limitY) panY = -limitY;
+    }
+
+    function resize() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      var h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    var ACCUM_VERT = [
+      "attribute vec2 a_pos;",
+      "varying vec2 v_uv;",
+      "void main() {",
+      "  gl_Position = vec4(a_pos.x * 2.0 - 1.0, 1.0 - a_pos.y * 2.0, 0.0, 1.0);",
+      "  v_uv = vec2(a_pos.x, 1.0 - a_pos.y);",
+      "}"
+    ].join("\n");
+    var ACCUM_FRAG = [
+      "precision mediump float;",
+      "varying vec2 v_uv;",
+      "uniform sampler2D u_curr;",
+      "uniform sampler2D u_prev;",
+      "uniform float u_alpha;",
+      "uniform float u_reset;",
+      "uniform float u_ghost;",
+      "float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }",
+      "void main() {",
+      "  float curr = luma(texture2D(u_curr, v_uv).rgb);",
+      "  float prev = texture2D(u_prev, v_uv).r;",
+      "  if (u_reset > 0.5) {",
+      "    gl_FragColor = vec4(curr, curr, curr, 1.0);",
+      "    return;",
+      "  }",
+      "  float gap = abs(curr - prev);",
+      "  float a = gap > u_ghost ? 1.0 : u_alpha;",
+      "  float m = mix(prev, curr, a);",
+      "  gl_FragColor = vec4(m, m, m, 1.0);",
+      "}"
+    ].join("\n");
+    var accumProgram = gl.createProgram();
+    gl.attachShader(accumProgram, compile(gl, gl.VERTEX_SHADER, ACCUM_VERT));
+    gl.attachShader(accumProgram, compile(gl, gl.FRAGMENT_SHADER, ACCUM_FRAG));
+    gl.bindAttribLocation(accumProgram, 0, "a_pos");
+    gl.linkProgram(accumProgram);
+    var accumLoc = {
+      curr: gl.getUniformLocation(accumProgram, "u_curr"),
+      prev: gl.getUniformLocation(accumProgram, "u_prev"),
+      alpha: gl.getUniformLocation(accumProgram, "u_alpha"),
+      reset: gl.getUniformLocation(accumProgram, "u_reset"),
+      ghost: gl.getUniformLocation(accumProgram, "u_ghost")
+    };
+    var accumTex = [gl.createTexture(), gl.createTexture()];
+    var accumFbo = [gl.createFramebuffer(), gl.createFramebuffer()];
+    var accumW = 0;
+    var accumH = 0;
+    var accumRead = 0;
+    var resetAccum = true;
+    var holdAccum = false;
+    /* Ruhe vor dem nächsten Mitteln, danach sanft von 1 auf 0,2. */
+    var STILL_MS = 320;
+    var EASE_MS = 220;
+    var ALPHA_STILL = 0.2;
+    var GHOST = 0.12;
+    var MOTION_HOLD_MS = 80;
+    var stillSince = 0;
+    var deviceMovedAt = 0;
+    var lastGravity = null;
+    var lastAlpha = 1;
+    var lastReset = true;
+    var drawn = 0;
+    window.addEventListener("devicemotion", function (event) {
+      var moving = false;
+      var lin = event.acceleration;
+      if (lin && typeof lin.x === "number") {
+        var am = Math.sqrt(lin.x * lin.x + lin.y * lin.y + lin.z * lin.z);
+        if (am > 0.22) moving = true;
+      }
+      var grav = event.accelerationIncludingGravity;
+      if (grav && typeof grav.x === "number") {
+        if (lastGravity) {
+          var dx = grav.x - lastGravity.x;
+          var dy = grav.y - lastGravity.y;
+          var dz = grav.z - lastGravity.z;
+          if (Math.sqrt(dx * dx + dy * dy + dz * dz) > 0.16) moving = true;
+        }
+        lastGravity = { x: grav.x, y: grav.y, z: grav.z };
+      }
+      var rot = event.rotationRate;
+      if (rot && typeof rot.alpha === "number") {
+        var rm = Math.abs(rot.alpha) + Math.abs(rot.beta) + Math.abs(rot.gamma);
+        if (rm > 8) moving = true;
+      }
+      if (moving) deviceMovedAt = performance.now();
+    });
+
+    function blankTex(tex, w, h) {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
+
+    function ensureAccum(w, h) {
+      var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048;
+      if (w > maxTex) w = maxTex;
+      if (h > maxTex) h = maxTex;
+      if (w === accumW && h === accumH) return true;
+      accumW = w;
+      accumH = h;
+      var i;
+      var ok = true;
+      for (i = 0; i < 2; i += 1) {
+        blankTex(accumTex[i], w, h);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, accumFbo[i]);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, accumTex[i], 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) ok = false;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      resetAccum = true;
+      stillSince = 0;
+      return ok;
+    }
+
+    /* Kein drawImage/getImageData auf dem Kamerabild: das würde auf Android
+       die Videobilder anhalten, und das Bild spränge nur noch einmal pro
+       Sekunde hinterher. Bewegung im Bild fängt der Shader pro Pixel ab. */
+    function accumDecision() {
+      var now = performance.now();
+      var sensor = deviceMovedAt > 0 && (now - deviceMovedAt) < MOTION_HOLD_MS;
+      if (resetAccum || sensor) {
+        stillSince = 0;
+        lastAlpha = 1;
+        lastReset = true;
+        return;
+      }
+      if (!stillSince) stillSince = now;
+      var quiet = now - stillSince;
+      if (quiet < STILL_MS) {
+        lastAlpha = 1;
+        lastReset = true;
+        return;
+      }
+      var t = (quiet - STILL_MS) / EASE_MS;
+      if (t < 1) {
+        lastAlpha = 1 - (1 - ALPHA_STILL) * t;
+        lastReset = false;
+        return;
+      }
+      lastAlpha = ALPHA_STILL;
+      lastReset = false;
+    }
+
+    /* Lichtfeld klein und weich, die Schrift bleibt das volle Graustufenbild. */
+    var ILLUM_W = 96;
+    var ILLUM_H = 54;
+    var DOWN_FRAG = [
+      "precision mediump float;",
+      "varying vec2 v_uv;",
+      "uniform sampler2D u_src;",
+      "uniform vec2 u_cell;",
+      "void main() {",
+      "  vec2 cell = u_cell;",
+      "  float s = 0.0;",
+      "  for (int j = 0; j < 4; j++) {",
+      "    for (int i = 0; i < 4; i++) {",
+      "      vec2 o = (vec2(float(i), float(j)) - 1.5) * cell * 0.25;",
+      "      s += texture2D(u_src, v_uv + o).r;",
+      "    }",
+      "  }",
+      "  s *= 0.0625;",
+      "  gl_FragColor = vec4(s, s, s, 1.0);",
+      "}"
+    ].join("\n");
+    var BLUR_FRAG = [
+      "precision mediump float;",
+      "varying vec2 v_uv;",
+      "uniform sampler2D u_src;",
+      "uniform vec2 u_dir;",
+      "void main() {",
+      "  float s = texture2D(u_src, v_uv).r * 0.28;",
+      "  s += texture2D(u_src, v_uv + u_dir * 2.0).r * 0.22;",
+      "  s += texture2D(u_src, v_uv - u_dir * 2.0).r * 0.22;",
+      "  s += texture2D(u_src, v_uv + u_dir * 4.0).r * 0.10;",
+      "  s += texture2D(u_src, v_uv - u_dir * 4.0).r * 0.10;",
+      "  s += texture2D(u_src, v_uv + u_dir * 6.0).r * 0.04;",
+      "  s += texture2D(u_src, v_uv - u_dir * 6.0).r * 0.04;",
+      "  gl_FragColor = vec4(s, s, s, 1.0);",
+      "}"
+    ].join("\n");
+    function makeIllumProgram(frag) {
+      var prog = gl.createProgram();
+      gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, ACCUM_VERT));
+      gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, frag));
+      gl.bindAttribLocation(prog, 0, "a_pos");
+      gl.linkProgram(prog);
+      return prog;
+    }
+    var downProg = makeIllumProgram(DOWN_FRAG);
+    var blurProg = makeIllumProgram(BLUR_FRAG);
+    if (!gl.getProgramParameter(downProg, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(downProg) || "Lichtfeld");
+    if (!gl.getProgramParameter(blurProg, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(blurProg) || "Lichtfeld");
+    var downLoc = {
+      src: gl.getUniformLocation(downProg, "u_src"),
+      cell: gl.getUniformLocation(downProg, "u_cell")
+    };
+    var blurLoc = {
+      src: gl.getUniformLocation(blurProg, "u_src"),
+      dir: gl.getUniformLocation(blurProg, "u_dir")
+    };
+    function makeIllumTex() {
+      var tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ILLUM_W, ILLUM_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      return tex;
+    }
+    var illumA = makeIllumTex();
+    var illumB = makeIllumTex();
+    var illumFboA = gl.createFramebuffer();
+    var illumFboB = gl.createFramebuffer();
+    var illumReady = true;
+    function attachIllum(fbo, tex) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) illumReady = false;
+    }
+    attachIllum(illumFboA, illumA);
+    attachIllum(illumFboB, illumB);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    function paintIllum(prog, srcTex, fbo) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.viewport(0, 0, ILLUM_W, ILLUM_H);
+      gl.useProgram(prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, srcTex);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    function buildIllum(srcTex) {
+      if (!illumReady) return false;
+      gl.useProgram(downProg);
+      gl.uniform1i(downLoc.src, 0);
+      gl.uniform2f(downLoc.cell, 1 / ILLUM_W, 1 / ILLUM_H);
+      paintIllum(downProg, srcTex, illumFboA);
+      gl.useProgram(blurProg);
+      gl.uniform1i(blurLoc.src, 0);
+      gl.uniform2f(blurLoc.dir, 1 / ILLUM_W, 0);
+      paintIllum(blurProg, illumA, illumFboB);
+      gl.uniform2f(blurLoc.dir, 0, 1 / ILLUM_H);
+      paintIllum(blurProg, illumB, illumFboA);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return true;
+    }
+
+    /* Modus 3: lokale Verschiebung der Vorgeschichte auf das aktuelle Bild.
+       Nur Translation, ±6 px in 2-px-Schritten, eine Richtung pro Kachel.
+       Unsicher, periodisch, bildrandig oder zu groß: aktuelles Bild. */
+    var ALIGN_W = 48;
+    var ALIGN_H = 27;
+    var ALIGN_FRAG = [
+      "precision mediump float;",
+      "varying vec2 v_uv;",
+      "uniform sampler2D u_curr;",
+      "uniform sampler2D u_hist;",
+      "uniform vec2 u_texel;",
+      "uniform float u_reset;",
+      "float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }",
+      "float currAt(vec2 uv) { return luma(texture2D(u_curr, uv).rgb); }",
+      "float histAt(vec2 uv) { return texture2D(u_hist, uv).r; }",
+      "void main() {",
+      "  if (u_reset > 0.5 || v_uv.x < 0.05 || v_uv.x > 0.95 || v_uv.y < 0.05 || v_uv.y > 0.95) {",
+      "    gl_FragColor = vec4(0.5, 0.5, 0.0, 1.0);",
+      "    return;",
+      "  }",
+      "  float mean = 0.0;",
+      "  for (int j = -1; j <= 1; j++) {",
+      "    for (int i = -1; i <= 1; i++) {",
+      "      mean += currAt(v_uv + vec2(float(i), float(j)) * u_texel * 6.0);",
+      "    }",
+      "  }",
+      "  mean /= 9.0;",
+      "  float variation = 0.0;",
+      "  for (int j = -1; j <= 1; j++) {",
+      "    for (int i = -1; i <= 1; i++) {",
+      "      float s = currAt(v_uv + vec2(float(i), float(j)) * u_texel * 6.0);",
+      "      variation += abs(s - mean);",
+      "    }",
+      "  }",
+      "  variation /= 9.0;",
+      "  if (variation < 0.02) {",
+      "    gl_FragColor = vec4(0.5, 0.5, 0.45, 1.0);",
+      "    return;",
+      "  }",
+      "  float best = 100.0;",
+      "  float second = 100.0;",
+      "  float zeroSad = 100.0;",
+      "  float bestX = 0.0;",
+      "  float bestY = 0.0;",
+      "  for (int j = -3; j <= 3; j++) {",
+      "    for (int i = -3; i <= 3; i++) {",
+      "      vec2 off = vec2(float(i), float(j)) * u_texel * 2.0;",
+      "      float sad = 0.0;",
+      "      for (int t = -1; t <= 1; t++) {",
+      "        for (int s = -1; s <= 1; s++) {",
+      "          vec2 p = v_uv + vec2(float(s), float(t)) * u_texel * 5.0;",
+      "          sad += abs(currAt(p) - histAt(p + off));",
+      "        }",
+      "      }",
+      "      sad /= 9.0;",
+      "      if (i == 0 && j == 0) zeroSad = sad;",
+      "      if (sad < best) {",
+      "        float far = abs(float(i) - bestX) + abs(float(j) - bestY);",
+      "        if (far >= 2.0) second = best;",
+      "        best = sad;",
+      "        bestX = float(i);",
+      "        bestY = float(j);",
+      "      } else if (abs(float(i) - bestX) + abs(float(j) - bestY) >= 2.0 && sad < second) {",
+      "        second = sad;",
+      "      }",
+      "    }",
+      "  }",
+      "  float conf = 1.0;",
+      "  float useX = bestX;",
+      "  float useY = bestY;",
+      "  if (best > 0.09) conf = 0.0;",
+      "  if (zeroSad <= best + 0.02) {",
+      "    useX = 0.0;",
+      "    useY = 0.0;",
+      "    conf = best > 0.09 ? 0.0 : 1.0;",
+      "  } else if (second - best < 0.012) {",
+      "    conf = 0.0;",
+      "  }",
+      "  gl_FragColor = vec4(useX * 2.0 / 32.0 + 0.5, useY * 2.0 / 32.0 + 0.5, conf, 1.0);",
+      "}"
+    ].join("\n");
+    var FUSE_FRAG = [
+      "precision mediump float;",
+      "varying vec2 v_uv;",
+      "uniform sampler2D u_curr;",
+      "uniform sampler2D u_hist;",
+      "uniform sampler2D u_motion;",
+      "uniform vec2 u_texel;",
+      "uniform float u_reset;",
+      "float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }",
+      "void main() {",
+      "  float c = luma(texture2D(u_curr, v_uv).rgb);",
+      "  if (u_reset > 0.5) {",
+      "    gl_FragColor = vec4(c, c, c, 1.0);",
+      "    return;",
+      "  }",
+      "  vec4 mot = texture2D(u_motion, v_uv);",
+      "  if (mot.b < 0.25) {",
+      "    gl_FragColor = vec4(c, c, c, 1.0);",
+      "    return;",
+      "  }",
+      "  vec2 off = vec2(0.0);",
+      "  if (mot.b > 0.75) off = (mot.xy - 0.5) * 32.0 * u_texel;",
+      "  float h = texture2D(u_hist, v_uv + off).r;",
+      "  float outc = c;",
+      "  if (abs(h - c) <= 0.12) outc = mix(h, c, 0.4);",
+      "  gl_FragColor = vec4(outc, outc, outc, 1.0);",
+      "}"
+    ].join("\n");
+    function makePass(frag) {
+      var prog = gl.createProgram();
+      gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, ACCUM_VERT));
+      gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, frag));
+      gl.bindAttribLocation(prog, 0, "a_pos");
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(prog) || "Ausrichtung");
+      }
+      return prog;
+    }
+    var REFINE_FRAG = [
+      "precision mediump float;",
+      "varying vec2 v_uv;",
+      "uniform sampler2D u_curr;",
+      "uniform sampler2D u_hist;",
+      "uniform sampler2D u_coarse;",
+      "uniform vec2 u_texel;",
+      "uniform float u_reset;",
+      "float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }",
+      "float currAt(vec2 uv) { return luma(texture2D(u_curr, uv).rgb); }",
+      "float histAt(vec2 uv) { return texture2D(u_hist, uv).r; }",
+      "float sadAt(vec2 off) {",
+      "  float sad = 0.0;",
+      "  for (int t = -1; t <= 1; t++) {",
+      "    for (int s = -1; s <= 1; s++) {",
+      "      vec2 p = v_uv + vec2(float(s), float(t)) * u_texel * 5.0;",
+      "      sad += abs(currAt(p) - histAt(p + off));",
+      "    }",
+      "  }",
+      "  return sad / 9.0;",
+      "}",
+      "void main() {",
+      "  vec4 coarse = texture2D(u_coarse, v_uv);",
+      "  if (u_reset > 0.5 || coarse.b < 0.75) {",
+      "    gl_FragColor = coarse;",
+      "    return;",
+      "  }",
+      "  vec2 base = (coarse.xy - 0.5) * 32.0 * u_texel;",
+      "  float baseSad = sadAt(base);",
+      "  float best = baseSad;",
+      "  vec2 bestOff = base;",
+      "  float second = 100.0;",
+      "  for (int j = -2; j <= 2; j++) {",
+      "    for (int i = -2; i <= 2; i++) {",
+      "      if (i == 0 && j == 0) {",
+      "        best = best;",
+      "      } else {",
+      "        vec2 off = base + vec2(float(i), float(j)) * u_texel * 0.5;",
+      "        float sad = sadAt(off);",
+      "        float dist = abs(float(i)) + abs(float(j));",
+      "        if (sad < best) {",
+      "          if (dist >= 2.0) second = best;",
+      "          best = sad;",
+      "          bestOff = off;",
+      "        } else if (dist >= 2.0 && sad < second) {",
+      "          second = sad;",
+      "        }",
+      "      }",
+      "    }",
+      "  }",
+      "  if (best > baseSad - 0.004 || (second < 90.0 && second - best < 0.006)) {",
+      "    gl_FragColor = coarse;",
+      "    return;",
+      "  }",
+      "  vec2 pix = bestOff / u_texel;",
+      "  gl_FragColor = vec4(pix.x / 32.0 + 0.5, pix.y / 32.0 + 0.5, coarse.b, 1.0);",
+      "}"
+    ].join("\n");
+    var alignProg = makePass(ALIGN_FRAG);
+    var fuseProg = makePass(FUSE_FRAG);
+    var refineProg = makePass(REFINE_FRAG);
+    var alignLoc = {
+      curr: gl.getUniformLocation(alignProg, "u_curr"),
+      hist: gl.getUniformLocation(alignProg, "u_hist"),
+      texel: gl.getUniformLocation(alignProg, "u_texel"),
+      reset: gl.getUniformLocation(alignProg, "u_reset")
+    };
+    var fuseLoc = {
+      curr: gl.getUniformLocation(fuseProg, "u_curr"),
+      hist: gl.getUniformLocation(fuseProg, "u_hist"),
+      motion: gl.getUniformLocation(fuseProg, "u_motion"),
+      texel: gl.getUniformLocation(fuseProg, "u_texel"),
+      reset: gl.getUniformLocation(fuseProg, "u_reset")
+    };
+    var refineLoc = {
+      curr: gl.getUniformLocation(refineProg, "u_curr"),
+      hist: gl.getUniformLocation(refineProg, "u_hist"),
+      coarse: gl.getUniformLocation(refineProg, "u_coarse"),
+      texel: gl.getUniformLocation(refineProg, "u_texel"),
+      reset: gl.getUniformLocation(refineProg, "u_reset")
+    };
+    var motionTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, motionTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ALIGN_W, ALIGN_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    var motionFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, motionFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, motionTex, 0);
+    var alignReady = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    var refineTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, refineTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ALIGN_W, ALIGN_H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    var refineFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, refineFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, refineTex, 0);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) alignReady = false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    var fuseTex = [gl.createTexture(), gl.createTexture()];
+    var fuseFbo = [gl.createFramebuffer(), gl.createFramebuffer()];
+    var fuseW = 0;
+    var fuseH = 0;
+    var fuseRead = 0;
+    function blankNearest(tex, w, h) {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
+    function ensureFuse(w, h) {
+      var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048;
+      if (w > maxTex) w = maxTex;
+      if (h > maxTex) h = maxTex;
+      if (!alignReady) return false;
+      if (w === fuseW && h === fuseH) return true;
+      fuseW = w;
+      fuseH = h;
+      var i;
+      for (i = 0; i < 2; i += 1) {
+        blankNearest(fuseTex[i], w, h);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fuseFbo[i]);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fuseTex[i], 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) alignReady = false;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      resetAccum = true;
+      return alignReady;
+    }
+    function bindPair(unit, tex) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+    }
+    var frameSource = texture;
+    var frozenOn = false;
+    var frozenTex = gl.createTexture();
+    var frozenFbo = gl.createFramebuffer();
+    var frozenW = 0;
+    var frozenH = 0;
+    var copyProg = makePass([
+      "precision mediump float;",
+      "varying vec2 v_uv;",
+      "uniform sampler2D u_src;",
+      "void main() { gl_FragColor = texture2D(u_src, v_uv); }"
+    ].join("\n"));
+    var copyLoc = gl.getUniformLocation(copyProg, "u_src");
+    gl.bindTexture(gl.TEXTURE_2D, frozenTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    function captureFreeze(w, h) {
+      w = Math.round(w);
+      h = Math.round(h);
+      if (!w || !h || !alignReady) return false;
+      var maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048;
+      if (w > maxTex) w = maxTex;
+      if (h > maxTex) h = maxTex;
+      if (w !== frozenW || h !== frozenH) {
+        gl.bindTexture(gl.TEXTURE_2D, frozenTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, frozenFbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, frozenTex, 0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          return false;
+        }
+        frozenW = w;
+        frozenH = h;
+      }
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, frozenFbo);
+      gl.viewport(0, 0, w, h);
+      gl.useProgram(copyProg);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.uniform1i(copyLoc, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.activeTexture(gl.TEXTURE0);
+      frozenOn = true;
+      return true;
+    }
+
+    function releaseFreeze() {
+      frozenOn = false;
+    }
+
+    function alignFrame(w, h, fine) {
+      var hist = fuseTex[fuseRead];
+      var write = 1 - fuseRead;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, motionFbo);
+      gl.viewport(0, 0, ALIGN_W, ALIGN_H);
+      gl.useProgram(alignProg);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      bindPair(0, frameSource);
+      bindPair(1, hist);
+      gl.uniform1i(alignLoc.curr, 0);
+      gl.uniform1i(alignLoc.hist, 1);
+      gl.uniform2f(alignLoc.texel, 1 / w, 1 / h);
+      gl.uniform1f(alignLoc.reset, resetAccum ? 1 : 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      var motionSrc = motionTex;
+      if (fine) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, refineFbo);
+        gl.viewport(0, 0, ALIGN_W, ALIGN_H);
+        gl.useProgram(refineProg);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        bindPair(0, frameSource);
+        bindPair(1, hist);
+        bindPair(2, motionTex);
+        gl.uniform1i(refineLoc.curr, 0);
+        gl.uniform1i(refineLoc.hist, 1);
+        gl.uniform1i(refineLoc.coarse, 2);
+        gl.uniform2f(refineLoc.texel, 1 / w, 1 / h);
+        gl.uniform1f(refineLoc.reset, resetAccum ? 1 : 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        motionSrc = refineTex;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fuseFbo[write]);
+      gl.viewport(0, 0, w, h);
+      gl.useProgram(fuseProg);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      bindPair(0, frameSource);
+      bindPair(1, hist);
+      bindPair(2, motionSrc);
+      gl.uniform1i(fuseLoc.curr, 0);
+      gl.uniform1i(fuseLoc.hist, 1);
+      gl.uniform1i(fuseLoc.motion, 2);
+      gl.uniform2f(fuseLoc.texel, 1 / w, 1 / h);
+      gl.uniform1f(fuseLoc.reset, resetAccum ? 1 : 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.activeTexture(gl.TEXTURE0);
+      fuseRead = write;
+      resetAccum = false;
+    }
+
+    function draw() {
+      drawn += 1;
+      resize();
+      /* canvas.width setzt in manchen Browsern den GL-Zustand zurück. */
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      var size = sourceSize(source);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      if (!size) return;
+      frameSource = texture;
+      if (frozenOn && frozenTex && frozenW === size[0] && frozenH === size[1]) {
+        frameSource = frozenTex;
+      } else {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+        frameSource = texture;
+      }
+      gl.bindTexture(gl.TEXTURE_2D, frameSource);
+      gl.uniform1f(loc.flip, orientationFlip);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      var scale = coverScale(size[0], size[1], canvas.width, canvas.height, magnification);
+      clampPan(scale);
+      gl.uniform2f(loc.uvScale, scale[0], scale[1]);
+      gl.uniform2f(loc.pan, panX, panY);
+      gl.uniform2f(loc.texel, 1 / size[0], 1 / size[1]);
+      var drawKind = mode.kind;
+      var shownKind = drawKind;
+      var useAccum = drawKind === SBL.KIND.smooth || drawKind === SBL.KIND.smooth2;
+      if (useAccum && ensureAccum(size[0], size[1])) {
+        var write = 1 - accumRead;
+        if (!holdAccum) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, accumFbo[write]);
+          gl.viewport(0, 0, accumW, accumH);
+          gl.useProgram(accumProgram);
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.enableVertexAttribArray(0);
+          gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, frameSource);
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, accumTex[accumRead]);
+          accumDecision();
+          gl.uniform1i(accumLoc.curr, 0);
+          gl.uniform1i(accumLoc.prev, 1);
+          gl.uniform1f(accumLoc.alpha, lastAlpha);
+          gl.uniform1f(accumLoc.reset, lastReset ? 1 : 0);
+          gl.uniform1f(accumLoc.ghost, GHOST);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          accumRead = write;
+          resetAccum = false;
+        }
+        var illumOn = drawKind === SBL.KIND.smooth2 && buildIllum(accumTex[accumRead]);
+        if (!illumOn && drawKind === SBL.KIND.smooth2) shownKind = SBL.KIND.smooth;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.useProgram(program);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, accumTex[accumRead]);
+        if (illumOn) {
+          gl.activeTexture(gl.TEXTURE2);
+          gl.bindTexture(gl.TEXTURE_2D, illumA);
+          gl.activeTexture(gl.TEXTURE0);
+        }
+        gl.uniform1f(loc.flip, orientationFlip);
+        gl.uniform2f(loc.uvScale, scale[0], scale[1]);
+        gl.uniform2f(loc.pan, panX, panY);
+        gl.uniform2f(loc.texel, 1 / size[0], 1 / size[1]);
+      } else if (drawKind === SBL.KIND.smooth2) {
+        shownKind = SBL.KIND.smooth;
+      } else if ((drawKind === SBL.KIND.smooth3 || drawKind === SBL.KIND.smooth4 || drawKind === SBL.KIND.smoothBw || drawKind === SBL.KIND.smoothYb || drawKind === SBL.KIND.smoothAmber || drawKind === SBL.KIND.smoothGray) && ensureFuse(size[0], size[1])) {
+        if (!holdAccum) alignFrame(fuseW, fuseH, drawKind === SBL.KIND.smooth4);
+        var illumAlign = buildIllum(fuseTex[fuseRead]);
+        if (drawKind === SBL.KIND.smooth3 || drawKind === SBL.KIND.smooth4) {
+          shownKind = illumAlign ? SBL.KIND.smooth2 : SBL.KIND.smooth;
+        } else if (illumAlign) {
+          shownKind = drawKind;
+        } else if (drawKind === SBL.KIND.smoothAmber) {
+          shownKind = SBL.KIND.amber;
+        } else if (drawKind === SBL.KIND.smoothGray) {
+          shownKind = SBL.KIND.gray;
+        } else {
+          shownKind = SBL.KIND.smooth;
+        }
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.useProgram(program);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, fuseTex[fuseRead]);
+        if (illumAlign) {
+          gl.activeTexture(gl.TEXTURE2);
+          gl.bindTexture(gl.TEXTURE_2D, illumA);
+          gl.activeTexture(gl.TEXTURE0);
+        }
+        gl.uniform1f(loc.flip, orientationFlip);
+        gl.uniform2f(loc.uvScale, scale[0], scale[1]);
+        gl.uniform2f(loc.pan, panX, panY);
+        gl.uniform2f(loc.texel, 1 / size[0], 1 / size[1]);
+      } else if (drawKind === SBL.KIND.smooth3 || drawKind === SBL.KIND.smooth4 || drawKind === SBL.KIND.smoothBw || drawKind === SBL.KIND.smoothYb) {
+        shownKind = SBL.KIND.smooth;
+      } else if (drawKind === SBL.KIND.smoothAmber) {
+        shownKind = SBL.KIND.amber;
+      } else if (drawKind === SBL.KIND.smoothGray) {
+        shownKind = SBL.KIND.gray;
+      }
+      gl.uniform1f(loc.mag, magnification);
+      gl.uniform1f(loc.kind, shownKind);
+      gl.uniform3fv(loc.ink, mode.ink || [0, 0, 0]);
+      gl.uniform3fv(loc.paper, mode.paper || [1, 1, 1]);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    var warned = false;
+    function frame() {
+      if (!running) return;
+      var t0 = performance.now();
+      try {
+        draw();
+      } catch (err) {
+        if (!warned) {
+          warned = true;
+          console.warn("Bildaufbau fehlgeschlagen", err);
+        }
+      }
+      var ms = performance.now() - t0;
+      frameMs = frameMs ? frameMs * 0.8 + ms * 0.2 : ms;
+      raf = requestAnimationFrame(frame);
+    }
+
+    canvas.addEventListener("webglcontextlost", function (event) {
+      event.preventDefault();
+      running = false;
+      cancelAnimationFrame(raf);
+    });
+
+    return {
+      backend: "webgl",
+      frameMs: function () { return frameMs; },
+      orientationFlip: function () { return orientationFlip; },
+      holdSmooth: function (on) { holdAccum = !!on; },
+      captureFreeze: captureFreeze,
+      releaseFreeze: releaseFreeze,
+      freezeInfo: function () { return { on: frozenOn, width: frozenW, height: frozenH }; },
+      resetSmooth: function () { if (!holdAccum) resetAccum = true; },
+      smoothDebug: function () {
+        return {
+          alpha: lastAlpha,
+          reset: lastReset,
+          stillMs: STILL_MS,
+          easeMs: EASE_MS,
+          alphaStill: ALPHA_STILL,
+          ghost: GHOST,
+          frames: drawn
+        };
+      },
+      setSource: function (next) {
+        source = next;
+        if (!holdAccum) resetAccum = true;
+      },
+      setMode: function (next) {
+        var incoming = next || SBL.MODES[0];
+        if (!mode || incoming.kind !== mode.kind) resetAccum = true;
+        mode = incoming;
+      },
+      setMagnification: function (value) {
+        var next = value > 1 ? value : 1;
+        if (next !== magnification) resetAccum = true;
+        magnification = next;
+      },
+      setPan: function (x, y) {
+        var nx = x || 0;
+        var ny = y || 0;
+        if (!holdAccum && (nx !== panX || ny !== panY)) resetAccum = true;
+        panX = nx;
+        panY = ny;
+      },
+      panBy: function (dx, dy, viewW, viewH) {
+        if (!holdAccum) resetAccum = true;
+        var size = sourceSize(source);
+        if (!size || !viewW || !viewH) return;
+        var scale = coverScale(size[0], size[1], canvas.width || viewW, canvas.height || viewH, magnification);
+        var ySign = orientationFlip ? -1 : 1;
+        panX -= (dx / viewW) * scale[0];
+        panY -= ySign * (dy / viewH) * scale[1];
+        clampPan(scale);
+      },
+      viewToSource: function (nx, ny) {
+        var size = sourceSize(source);
+        if (!size) return { x: nx, y: ny };
+        var scale = coverScale(size[0], size[1], canvas.width || 1, canvas.height || 1, magnification);
+        var x = (nx - 0.5) * scale[0] + 0.5 + panX;
+        var y = (ny - 0.5) * scale[1] + 0.5 + panY;
+        if (orientationFlip) y = 1.0 - y;
+        if (x < 0) x = 0;
+        if (x > 1) x = 1;
+        if (y < 0) y = 0;
+        if (y > 1) y = 1;
+        return { x: x, y: y };
+      },
+      start: function () {
+        if (running) return;
+        running = true;
+        raf = requestAnimationFrame(frame);
+      },
+      stop: function () {
+        running = false;
+        cancelAnimationFrame(raf);
+      },
+      drawNow: draw
+    };
+  }
+
+  function create2D(canvas) {
+    var ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+    var work = document.createElement("canvas");
+    var wctx = work.getContext("2d", { willReadFrequently: true });
+    var source = null;
+    var mode = SBL.MODES[0];
+    var magnification = 1;
+    var panX = 0;
+    var panY = 0;
+    var running = false;
+    var raf = 0;
+    var frameMs = 0;
+    var maxWidth = 720;
+
+    function clampPan(scale) {
+      var limitX = Math.max(0, (1 - scale[0]) * 0.5);
+      var limitY = Math.max(0, (1 - scale[1]) * 0.5);
+      if (panX > limitX) panX = limitX;
+      if (panX < -limitX) panX = -limitX;
+      if (panY > limitY) panY = limitY;
+      if (panY < -limitY) panY = -limitY;
+    }
+
+    function resize() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      var h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+    }
+
+    function paintCover(targetCtx, targetW, targetH, src, size) {
+      var zoom = magnification > 1 ? magnification : 1;
+      var dstAspect = targetW / targetH;
+      var srcAspect = size[0] / size[1];
+      var sw;
+      var sh;
+      if (srcAspect > dstAspect) {
+        sh = size[1];
+        sw = size[1] * dstAspect;
+      } else {
+        sw = size[0];
+        sh = size[0] / dstAspect;
+      }
+      sw /= zoom;
+      sh /= zoom;
+      var sx = (size[0] - sw) / 2 + panX * size[0];
+      var sy = (size[1] - sh) / 2 + panY * size[1];
+      if (sx < 0) sx = 0;
+      if (sy < 0) sy = 0;
+      if (sx + sw > size[0]) sx = Math.max(0, size[0] - sw);
+      if (sy + sh > size[1]) sy = Math.max(0, size[1] - sh);
+      targetCtx.imageSmoothingEnabled = zoom <= 1.02;
+      targetCtx.drawImage(src, sx, sy, sw, sh, 0, 0, targetW, targetH);
+    }
+
+    function shadeSmooth2(data, width, height) {
+      var cols = 12;
+      var rows = 8;
+      var sum = new Float32Array(cols * rows);
+      var count = new Float32Array(cols * rows);
+      var y;
+      var x;
+      for (y = 0; y < height; y += 1) {
+        var gy = Math.min(rows - 1, Math.floor(y * rows / height));
+        for (x = 0; x < width; x += 1) {
+          var gx = Math.min(cols - 1, Math.floor(x * cols / width));
+          var p = (y * width + x) * 4;
+          var luma = (0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]) / 255;
+          var idx = gy * cols + gx;
+          sum[idx] += luma;
+          count[idx] += 1;
+        }
+      }
+      var grid = new Float32Array(cols * rows);
+      var i;
+      for (i = 0; i < grid.length; i += 1) grid[i] = count[i] ? sum[i] / count[i] : 0.7;
+      var blur = new Float32Array(grid.length);
+      var r;
+      var c;
+      for (r = 0; r < rows; r += 1) {
+        for (c = 0; c < cols; c += 1) {
+          var acc = 0;
+          var n = 0;
+          var rr;
+          var cc;
+          for (rr = r - 1; rr <= r + 1; rr += 1) {
+            for (cc = c - 1; cc <= c + 1; cc += 1) {
+              if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+              acc += grid[rr * cols + cc];
+              n += 1;
+            }
+          }
+          blur[r * cols + c] = acc / n;
+        }
+      }
+      var wide = 0;
+      for (i = 0; i < blur.length; i += 1) wide += blur[i];
+      wide /= blur.length;
+      for (y = 0; y < height; y += 1) {
+        var gy2 = Math.min(rows - 1, Math.floor(y * rows / height));
+        for (x = 0; x < width; x += 1) {
+          var gx2 = Math.min(cols - 1, Math.floor(x * cols / width));
+          var q = (y * width + x) * 4;
+          var y0 = (0.299 * data[q] + 0.587 * data[q + 1] + 0.114 * data[q + 2]) / 255;
+          var local = blur[gy2 * cols + gx2];
+          var gain = wide / Math.max(local, 0.2);
+          if (gain < 0.72) gain = 0.72;
+          if (gain > 2.2) gain = 2.2;
+          var y2 = y0 * gain;
+          if (y2 < 0) y2 = 0;
+          if (y2 > 1) y2 = 1;
+          var ps = smoothstep(0.42, 0.50, y2);
+          var vs = (1 - ps) * 255;
+          data[q] = vs;
+          data[q + 1] = vs;
+          data[q + 2] = vs;
+        }
+      }
+    }
+
+    function applyPixels(image, width, height, current) {
+      var data = image.data;
+      var kind = current.kind;
+      if (kind === SBL.KIND.normal) return;
+      if (kind === SBL.KIND.edges) {
+        applyEdges(data, width, height);
+        return;
+      }
+      if (kind === SBL.KIND.smoothAmber) {
+        kind = SBL.KIND.amber;
+      } else if (kind === SBL.KIND.smoothGray) {
+        kind = SBL.KIND.gray;
+      } else if (kind === SBL.KIND.smoothBw || kind === SBL.KIND.smoothYb) {
+        shadeSmooth2(data, width, height);
+        var ink = current.ink || [0, 0, 0];
+        var paper = current.paper || [1, 1, 1];
+        var p;
+        for (p = 0; p < data.length; p += 4) {
+          var mix = data[p] / 255;
+          data[p] = (ink[0] + (paper[0] - ink[0]) * (1 - mix)) * 255;
+          data[p + 1] = (ink[1] + (paper[1] - ink[1]) * (1 - mix)) * 255;
+          data[p + 2] = (ink[2] + (paper[2] - ink[2]) * (1 - mix)) * 255;
+        }
+        return;
+      }
+      if (kind === SBL.KIND.smooth2 || kind === SBL.KIND.smooth3 || kind === SBL.KIND.smooth4) {
+        shadeSmooth2(data, width, height);
+        return;
+      }
+      var ink = current.ink || [0, 0, 0];
+      var paper = current.paper || [1, 1, 1];
+      for (var i = 0; i < data.length; i += 4) {
+        var r = data[i];
+        var g = data[i + 1];
+        var b = data[i + 2];
+        if (kind === SBL.KIND.invert) {
+          data[i] = 255 - r;
+          data[i + 1] = 255 - g;
+          data[i + 2] = 255 - b;
+          continue;
+        }
+        if (kind === SBL.KIND.contrast) {
+          data[i] = clampByte((r / 255 - 0.45) * 2.6 + 0.5);
+          data[i + 1] = clampByte((g / 255 - 0.45) * 2.6 + 0.5);
+          data[i + 2] = clampByte((b / 255 - 0.45) * 2.6 + 0.5);
+          continue;
+        }
+        if (kind === SBL.KIND.amber) {
+          var rr = r / 255;
+          var gg = g / 255;
+          var bb = b / 255;
+          data[i] = clampByte(0.58 * rr + 0.38 * gg + 0.06 * bb + 0.05);
+          data[i + 1] = clampByte(0.20 * rr + 0.40 * gg + 0.04 * bb + 0.02);
+          data[i + 2] = clampByte(0.03 * rr + 0.05 * gg + 0.08 * bb);
+          continue;
+        }
+        if (kind === SBL.KIND.gray) {
+          var luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          var gray = clampByte((luma - 0.42) * 1.85 + 0.48);
+          data[i] = data[i + 1] = data[i + 2] = gray;
+          continue;
+        }
+        if (kind === SBL.KIND.smooth) {
+          var ys = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          var ps = smoothstep(0.42, 0.50, ys);
+          var vs = (1 - ps) * 255;
+          data[i] = vs;
+          data[i + 1] = vs;
+          data[i + 2] = vs;
+          continue;
+        }
+        if (kind === SBL.KIND.dalton) {
+          var cr = r / 255;
+          var cg = g / 255;
+          var cb = b / 255;
+          var L = 17.8824 * cr + 43.5161 * cg + 4.11935 * cb;
+          var Mp = 0.494207 * L + 1.24827 * (0.0299566 * cr + 0.184309 * cg + 1.46709 * cb);
+          var S = 0.0299566 * cr + 0.184309 * cg + 1.46709 * cb;
+          var rp = 0.080944 * L - 0.130504 * Mp + 0.116721 * S;
+          var gp = -0.0102485 * L + 0.0540193 * Mp - 0.113615 * S;
+          var bp = -0.0003653 * L - 0.0041216 * Mp + 0.693511 * S;
+          var er = cr - rp;
+          var eg = cg - gp;
+          var eb = cb - bp;
+          data[i] = clampByte(cr);
+          data[i + 1] = clampByte(cg + 0.7 * er + eg);
+          data[i + 2] = clampByte(cb + 0.7 * er + eb);
+          continue;
+        }
+        var y = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        var p = smoothstep(0.30, 0.62, y);
+        p = smoothstep(0.15, 0.85, p);
+        data[i] = (ink[0] + (paper[0] - ink[0]) * p) * 255;
+        data[i + 1] = (ink[1] + (paper[1] - ink[1]) * p) * 255;
+        data[i + 2] = (ink[2] + (paper[2] - ink[2]) * p) * 255;
+      }
+    }
+
+    function draw() {
+      resize();
+      var size = sourceSize(source);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (!size) return;
+      if (mode.kind === SBL.KIND.normal) {
+        paintCover(ctx, canvas.width, canvas.height, source, size);
+        return;
+      }
+      var workW = Math.min(maxWidth, canvas.width);
+      var workH = Math.max(1, Math.round(workW * (canvas.height / canvas.width)));
+      if (work.width !== workW || work.height !== workH) {
+        work.width = workW;
+        work.height = workH;
+      }
+      paintCover(wctx, workW, workH, source, size);
+      var image = wctx.getImageData(0, 0, workW, workH);
+      applyPixels(image, workW, workH, mode);
+      wctx.putImageData(image, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(work, 0, 0, canvas.width, canvas.height);
+    }
+
+    function frame() {
+      if (!running) return;
+      var t0 = performance.now();
+      draw();
+      var ms = performance.now() - t0;
+      frameMs = frameMs ? frameMs * 0.8 + ms * 0.2 : ms;
+      raf = requestAnimationFrame(frame);
+    }
+
+    return {
+      backend: "2d",
+      frameMs: function () { return frameMs; },
+      setSource: function (next) { source = next; },
+      setMode: function (next) { mode = next || SBL.MODES[0]; },
+      setMagnification: function (value) { magnification = value > 1 ? value : 1; },
+      setPan: function (x, y) { panX = x || 0; panY = y || 0; },
+      panBy: function (dx, dy, viewW, viewH) {
+        var size = sourceSize(source);
+        if (!size || !viewW || !viewH) return;
+        var scale = coverScale(size[0], size[1], canvas.width || viewW, canvas.height || viewH, magnification);
+        panX -= (dx / viewW) * scale[0];
+        panY -= (dy / viewH) * scale[1];
+        clampPan(scale);
+      },
+      viewToSource: function (nx, ny) {
+        var size = sourceSize(source);
+        if (!size) return { x: nx, y: ny };
+        var scale = coverScale(size[0], size[1], canvas.width || 1, canvas.height || 1, magnification);
+        var x = (nx - 0.5) * scale[0] + 0.5 + panX;
+        var y = (ny - 0.5) * scale[1] + 0.5 + panY;
+        if (x < 0) x = 0;
+        if (x > 1) x = 1;
+        if (y < 0) y = 0;
+        if (y > 1) y = 1;
+        return { x: x, y: y };
+      },
+      start: function () {
+        if (running) return;
+        running = true;
+        raf = requestAnimationFrame(frame);
+      },
+      stop: function () {
+        running = false;
+        cancelAnimationFrame(raf);
+      },
+      drawNow: draw
+    };
+  }
+
+  function smoothstep(edge0, edge1, x) {
+    var t = (x - edge0) / (edge1 - edge0);
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+    return t * t * (3 - 2 * t);
+  }
+
+  function clampByte(value) {
+    var v = Math.round(value * 255);
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return v;
+  }
+
+  function applyEdges(data, width, height) {
+    var gray = new Uint8ClampedArray(width * height);
+    var i;
+    for (i = 0; i < width * height; i += 1) {
+      var o = i * 4;
+      gray[i] = 0.299 * data[o] + 0.587 * data[o + 1] + 0.114 * data[o + 2];
+    }
+    for (var y = 1; y < height - 1; y += 1) {
+      for (var x = 1; x < width - 1; x += 1) {
+        var idx = y * width + x;
+        var gx = -gray[idx - width - 1] - 2 * gray[idx - 1] - gray[idx + width - 1]
+          + gray[idx - width + 1] + 2 * gray[idx + 1] + gray[idx + width + 1];
+        var gy = -gray[idx - width - 1] - 2 * gray[idx - width] - gray[idx - width + 1]
+          + gray[idx + width - 1] + 2 * gray[idx + width] + gray[idx + width + 1];
+        var mag = Math.sqrt(gx * gx + gy * gy);
+        var val = mag > 80 ? 255 : 0;
+        var p = idx * 4;
+        data[p] = val;
+        data[p + 1] = val;
+        data[p + 2] = val;
+      }
+    }
+  }
+
+  SBL.createRenderer = function (canvas) {
+    try {
+      var glRenderer = createGL(canvas);
+      if (glRenderer) return glRenderer;
+    } catch (err) {
+      var lose = canvas.getContext("webgl");
+      if (lose) {
+        var ext = lose.getExtension("WEBGL_lose_context");
+        if (ext) ext.loseContext();
+      }
+      var replacement = document.createElement("canvas");
+      replacement.id = canvas.id;
+      canvas.replaceWith(replacement);
+      canvas = replacement;
+    }
+    return create2D(canvas);
+  };
+})(window.SBL = window.SBL || {});
+
+/* Gespeicherte Einstellungen. localStorage-Fehler bleiben folgenlos. */
+(function (SBL) {
+  "use strict";
+
+  var KEY = "sblupe-settings";
+
+  function clamp(value, min, max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  }
+
+  function defaults() {
+    var modes = {};
+    var i;
+    var offByDefault = { "red-green": true, "black-lightgreen": true, "black-lightblue": true };
+    for (i = 0; i < SBL.MODES.length; i += 1) {
+      var modeId = SBL.MODES[i].id;
+      modes[modeId] = offByDefault[modeId] ? false : true;
+    }
+    return {
+      modes: modes,
+      readingGuide: false,
+      guideSize: "mittel",
+      guideOffset: 0.5,
+      brightness: 100,
+      contrast: 100,
+      remember: false,
+      tapFocus: false,
+      rotate: "follow",
+      textSize: "normal"
+    };
+  }
+
+  SBL.textScale = function (size) {
+    if (size === "gross") return 1.25;
+    if (size === "sehr-gross") return 1.5;
+    return 1;
+  };
+
+  /* Seitenzoom von Chrome (Standard-Zoom) lässt sich nicht zuverlässig von
+     der Geräteauflösung trennen. visualViewport.scale ist nur der Pinch-Zoom.
+     screen.width und innerWidth sind beide CSS-Pixel und bleiben auf dem
+     Handy etwa gleich. Deshalb bleibt der Faktor 1, außer die Messung ist
+     eindeutig — was sie hier nicht ist. */
+  SBL.pageZoomInfo = function (metrics) {
+    var info = { factor: 1, reliable: false, kind: "none" };
+    if (!metrics) return info;
+    if (metrics.ios) {
+      info.kind = "ios";
+      return info;
+    }
+    if (!metrics.androidChrome) {
+      info.kind = "desktop";
+      return info;
+    }
+    var scale = metrics.vvScale;
+    if (typeof scale === "number" && scale > 1.02) {
+      info.kind = "pinch";
+      return info;
+    }
+    var inner = metrics.innerWidth;
+    var screenW = metrics.screenWidth;
+    var view = metrics.vvWidth || inner;
+    if (!(inner > 0) || !(screenW > 0) || !(view > 0)) return info;
+    var ratio = screenW / inner;
+    var viewRatio = screenW / view;
+    if (Math.abs(ratio - viewRatio) > 0.08) {
+      info.kind = "mismatch";
+      return info;
+    }
+    if (ratio > 1.05 && ratio < 3) {
+      info.kind = "ambiguous";
+      return info;
+    }
+    if (ratio >= 0.95 && ratio <= 1.05) {
+      info.kind = "matched";
+      info.reliable = true;
+      info.factor = 1;
+      return info;
+    }
+    return info;
+  };
+
+  SBL.sliderGesture = function (dx, dy, sliding) {
+    if (sliding) return "slide";
+    if (Math.abs(dx) <= 10 && Math.abs(dy) <= 10) return "wait";
+    if (Math.abs(dx) > 10 && Math.abs(dx) > 1.5 * Math.abs(dy)) return "slide";
+    return "scroll";
+  };
+
+  SBL.sliderValueAt = function (clientX, left, width, min, max) {
+    var span = width > 0 ? width : 1;
+    var t = (clientX - left) / span;
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+    return min + t * (max - min);
+  };
+
+  SBL.wantsPortraitLock = function (rotate, readingGuide) {
+    if (rotate === "lock") return true;
+    if (rotate === "guide") return !readingGuide;
+    return false;
+  };
+
+  /* Einblendung nur, wenn die Sperre gewollt ist, das Bild quer liegt,
+     die Sperre nicht gegriffen hat, und diese Querlage noch nicht gemeldet wurde. */
+  SBL.rotateHintNeeded = function (state) {
+    if (!state || !state.wantsLock || !state.landscape || state.locked || state.alreadyHinted) return false;
+    return true;
+  };
+
+  SBL.devicePlatform = function (ua, maxTouch, platformName) {
+    var text = ua || "";
+    var ios = /iPad|iPhone|iPod/.test(text) || (platformName === "MacIntel" && maxTouch > 1);
+    if (ios) return "ios";
+    if (/SamsungBrowser/i.test(text)) return "samsung";
+    if (/Android/i.test(text) && /Chrome|CriOS/i.test(text) && !/Edg|OPR|SamsungBrowser|Firefox/i.test(text)) {
+      return "android-chrome";
+    }
+    if (/Android/i.test(text)) return "android";
+    return "other";
+  };
+
+  SBL.rotateLockHint = function (platform) {
+    if (platform === "ios") return "Bitte Drehsperre im Kontrollzentrum nutzen";
+    return "Bitte Drehsperre am Handy nutzen";
+  };
+
+  SBL.installCopy = function (platform) {
+    if (platform === "ios") {
+      return "Tipp: Über Teilen → „Zum Home-Bildschirm“ läuft die Lupe im Vollbild. Die Schriftgröße können Sie danach in der App unter Einstellungen anpassen.";
+    }
+    if (platform === "samsung") {
+      return "Tipp: Stellen Sie vorher die Textgröße im Browser auf Standard. Dann über das Menü → „Seite hinzufügen zu“ → „Startbildschirm“ – so läuft die Lupe im Vollbild in normaler Größe. Die Schriftgröße können Sie danach in der App unter Einstellungen anpassen.";
+    }
+    if (platform === "android-chrome") {
+      return "Tipp: Stellen Sie vorher im Chrome-Menü ⋮ den Zoom auf 100 %. Dann über ⋮ → „App installieren“ – so läuft die Lupe im Vollbild in normaler Größe. Die Schriftgröße können Sie danach in der App unter Einstellungen anpassen.";
+    }
+    return "Tipp: Fügen Sie die Seite über das Browser-Menü zum Startbildschirm hinzu – so läuft die Lupe im Vollbild. Die Schriftgröße können Sie danach in der App unter Einstellungen anpassen.";
+  };
+
+  SBL.guideFraction = function (size) {
+    if (size === "klein") return 0.15;
+    if (size === "gross") return 0.4;
+    return 0.26;
+  };
+
+  SBL.clampGuide = function (center, size) {
+    var height = SBL.guideFraction(size);
+    var min = height / 2;
+    var max = 1 - height / 2;
+    var value = typeof center === "number" && isFinite(center) ? center : 0.5;
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  };
+
+  SBL.nudgeGuide = function (center, size, direction) {
+    var step = direction < 0 ? -1 : 1;
+    return SBL.clampGuide(center + step * SBL.guideFraction(size), size);
+  };
+
+  /* center, freeTop and freeBottom are fractions of the view height.
+     The band and the handle share one center and must both stay inside. */
+  SBL.clampGuideInView = function (center, bandFraction, freeTop, freeBottom, handleFraction) {
+    var band = bandFraction > 0 ? bandFraction : 0;
+    var handle = handleFraction > 0 ? handleFraction : 0;
+    var span = Math.max(band, handle);
+    var topBound = freeTop > 0 ? freeTop : 0;
+    var bottomBound = typeof freeBottom === "number" && isFinite(freeBottom) ? freeBottom : 1;
+    if (topBound > 1) topBound = 0;
+    if (bottomBound > 1) bottomBound = 1;
+    if (bottomBound < topBound) bottomBound = topBound;
+    var min = topBound + span / 2;
+    var max = bottomBound - span / 2;
+    var value = typeof center === "number" && isFinite(center) ? center : (topBound + bottomBound) / 2;
+    if (value < min) value = min;
+    if (value > max) value = max;
+    return value;
+  };
+
+  SBL.loadSettings = function () {
+    var settings = defaults();
+    var raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (err) { return settings; }
+    if (!raw) return settings;
+    try {
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return settings;
+      if (parsed.modes && typeof parsed.modes === "object") {
+        var j;
+        for (j = 0; j < SBL.MODES.length; j += 1) {
+          var id = SBL.MODES[j].id;
+          if (id !== "normal" && typeof parsed.modes[id] === "boolean") {
+            settings.modes[id] = parsed.modes[id];
+          }
+        }
+        /* Neue Glatt-Modi gab es im alten Speicher nicht. Ohne eigenen Haken
+           folgen sie dem Ausgangsmodus, sonst tauchen sie im Durchschalten
+           neben einem anderen Modus auf. */
+        var followParent = {
+          "black-white-smooth": "black-white",
+          "yellow-blue-smooth": "yellow-blue",
+          "amber-smooth": "amber",
+          "gray-smooth": "gray"
+        };
+        var childId;
+        for (childId in followParent) {
+          if (!Object.prototype.hasOwnProperty.call(followParent, childId)) continue;
+          var parentId = followParent[childId];
+          if (typeof parsed.modes[childId] !== "boolean" && typeof parsed.modes[parentId] === "boolean") {
+            settings.modes[childId] = parsed.modes[parentId];
+          }
+        }
+      }
+      if (parsed.guideSize === "klein" || parsed.guideSize === "mittel" || parsed.guideSize === "gross") {
+        settings.guideSize = parsed.guideSize;
+      }
+      if (typeof parsed.remember === "boolean") settings.remember = parsed.remember;
+      if (typeof parsed.tapFocus === "boolean") settings.tapFocus = parsed.tapFocus;
+      if (parsed.rotate === "follow" || parsed.rotate === "guide" || parsed.rotate === "lock") {
+        settings.rotate = parsed.rotate;
+      }
+      if (parsed.textSize === "normal" || parsed.textSize === "gross" || parsed.textSize === "sehr-gross") {
+        settings.textSize = parsed.textSize;
+      }
+      if (settings.remember) {
+        if (typeof parsed.readingGuide === "boolean") settings.readingGuide = parsed.readingGuide;
+        if (typeof parsed.brightness === "number" && isFinite(parsed.brightness)) {
+          settings.brightness = clamp(Math.round(parsed.brightness), 40, 180);
+        }
+        if (typeof parsed.contrast === "number" && isFinite(parsed.contrast)) {
+          settings.contrast = clamp(Math.round(parsed.contrast), 40, 200);
+        }
+        if (typeof parsed.guideOffset === "number" && isFinite(parsed.guideOffset)) {
+          settings.guideOffset = parsed.guideOffset;
+        }
+      }
+      settings.guideOffset = SBL.clampGuide(settings.guideOffset, settings.guideSize);
+    } catch (err) { /* beschädigte Daten ignorieren */ }
+    settings.modes.normal = true;
+    return settings;
+  };
+
+  SBL.saveSettings = function (settings) {
+    try {
+      settings.modes.normal = true;
+      localStorage.setItem(KEY, JSON.stringify(settings));
+    } catch (err) { /* privatmodus */ }
+  };
+
+  SBL.enabledModes = function (settings) {
+    var list = [];
+    var i;
+    for (i = 0; i < SBL.MODES.length; i += 1) {
+      var mode = SBL.MODES[i];
+      if (mode.id === "normal" || (settings.modes && settings.modes[mode.id] !== false)) list.push(mode);
+    }
+    return list;
+  };
+})(window.SBL = window.SBL || {});
+
+/* Verbindet Kamera, Darstellung und die untere Tastenleiste. */
+(function (SBL) {
+  "use strict";
+
+  var TEXT = {
+    insecure: "Die Kamera funktioniert nur über eine gesicherte Verbindung (https oder localhost). Unten sehen Sie eine Beispielansicht.",
+    denied: "Der Kamerazugriff wurde abgelehnt. Erlauben Sie die Kamera für diese Seite in den Browser-Einstellungen und tippen Sie dann auf „Erneut versuchen“. Bis dahin sehen Sie eine Beispielansicht.",
+    missing: "Es wurde keine Kamera gefunden. Sie sehen eine Beispielansicht, damit Sie die Tasten ausprobieren können.",
+    busy: "Die Kamera wird gerade von einer anderen App benutzt. Schließen Sie diese und tippen Sie auf „Erneut versuchen“.",
+    unknown: "Die Kamera konnte nicht gestartet werden. Sie sehen eine Beispielansicht.",
+    starting: "Kamera wird gestartet …",
+    beispiel: "Beispielansicht. Tippen Sie auf „Kamera starten“, wenn Sie das echte Kamerabild wollen.",
+    torchFail: "Die Taschenlampe konnte nicht geschaltet werden.",
+    switchFail: "Kamera konnte nicht gewechselt werden",
+    rear: "Rückkamera aktiv.",
+    front: "Frontkamera aktiv.",
+    zoomMax: "Größte Vergrößerung erreicht.",
+    zoomMin: "Kleinste Vergrößerung erreicht."
+  };
+
+  function storageGet(key) {
+    try { return localStorage.getItem(key); } catch (err) { return null; }
+  }
+
+  function storageSet(key, value) {
+    try { localStorage.setItem(key, value); } catch (err) { /* privatmodus */ }
+  }
+
+  function announce(text) {
+    var live = document.getElementById("live");
+    if (!live) return;
+    live.textContent = "";
+    window.setTimeout(function () { live.textContent = text; }, 40);
+  }
+
+  var INSTALL_SEEN = "sblupe-install-seen";
+  var installPromptEvent = null;
+
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+    installPromptEvent = event;
+    if (SBL.app && SBL.app.refreshInstall) SBL.app.refreshInstall();
+  });
+  window.addEventListener("appinstalled", function () {
+    installPromptEvent = null;
+    if (SBL.app && SBL.app.refreshInstall) SBL.app.refreshInstall();
+  });
+
+  function thisPlatform() {
+    var touch = 0;
+    try { touch = navigator.maxTouchPoints || 0; } catch (err) { touch = 0; }
+    return SBL.devicePlatform(navigator.userAgent || "", touch, navigator.platform || "");
+  }
+
+  function appIsInstalled() {
+    try {
+      if (window.matchMedia("(display-mode: standalone)").matches) return true;
+    } catch (err) { /* ohne matchMedia */ }
+    return navigator.standalone === true;
+  }
+
+  function displayModeName() {
+    return appIsInstalled() ? "standalone" : "browser";
+  }
+
+  function formatEnd(value) {
+    var rounded = Math.round(value * 10) / 10;
+    if (Math.abs(rounded - Math.round(rounded)) < 0.05) {
+      return String(Math.round(rounded)) + "x";
+    }
+    return rounded.toFixed(1).replace(".", ",") + "x";
+  }
+
+  function init() {
+    var video = document.getElementById("video");
+    var canvas = document.getElementById("view");
+    var view = document.getElementById("view-wrap");
+    var bar = document.getElementById("bar");
+    var scroller = document.getElementById("bar-scroll");
+    var overlay = document.getElementById("zoom-overlay");
+    var modeHint = document.getElementById("mode-hint");
+    var slider = document.getElementById("zoom-slider");
+    var zoomMinLabel = document.getElementById("zoom-min");
+    var zoomMaxLabel = document.getElementById("zoom-max");
+    var banner = document.getElementById("banner");
+    var bannerText = document.getElementById("banner-text");
+    var retry = document.getElementById("retry");
+
+    var settings = SBL.loadSettings();
+    var camera = new SBL.Camera(video);
+
+    var renderer = SBL.createRenderer(document.getElementById("view"));
+    canvas = document.getElementById("view");
+    var demo = SBL.createDemoSource();
+    var usingDemo = true;
+    var frozen = false;
+    var snapshot = null;
+    var freezeBaseScale = 1;
+    var freezeBaseZoom = 1;
+    var mode = settings.remember ? SBL.modeById(storageGet("sblupe-mode")) : SBL.modeById("normal");
+    if (!settings.modes[mode.id]) mode = SBL.modeById("normal");
+    if (settings.remember) {
+      var savedZoom = parseFloat(storageGet("sblupe-zoom"));
+      if (isFinite(savedZoom)) camera.setZoom(savedZoom);
+    }
+    var overlayTimer = 0;
+    var hintTimer = 0;
+    var flashTimer = 0;
+    var zoomAnnounceTimer = 0;
+    var lastPinch = 0;
+    var slowTimer = 0;
+
+    renderer.setMode(mode);
+    renderer.setMagnification(1);
+    renderer.setSource(null);
+    renderer.start();
+
+    var torchButton = controlButton("torch", "Licht", "Taschenlampe ein oder aus");
+    torchButton.setAttribute("aria-pressed", "false");
+    torchButton.hidden = true;
+    var modeButton = controlButton("mode", mode.label, "Darstellung " + mode.label + ". Tippen für die nächste.");
+    modeButton.classList.add("mode-btn");
+    var house = document.createElement("span");
+    house.className = "house";
+    house.setAttribute("aria-hidden", "true");
+    house.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.2 3 11h2.2v9.2h5.1v-5.6h3.4v5.6H19V11h2.2L12 3.2z"/></svg>';
+    modeButton.insertBefore(house, modeButton.firstChild);
+
+    var freezeButton = controlButton("freeze", "Bild einfrieren", "Bild einfrieren");
+    freezeButton.setAttribute("aria-pressed", "false");
+    var modeCluster = cluster("group", "Darstellung");
+    modeCluster.appendChild(modeButton);
+    modeCluster.appendChild(freezeButton);
+    var settingsButton = controlButton("settings", "Einstellungen", "Einstellungen öffnen");
+    var gear = document.createElement("span");
+    gear.className = "gear";
+    gear.setAttribute("aria-hidden", "true");
+    gear.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13.5a7.7 7.7 0 0 0 .1-1.5 7.7 7.7 0 0 0-.1-1.5l2-1.6a.7.7 0 0 0 .2-.9l-1.9-3.3a.7.7 0 0 0-.9-.3l-2.4 1a7.4 7.4 0 0 0-2.6-1.5l-.4-2.5A.7.7 0 0 0 12.7 1h-3.8a.7.7 0 0 0-.7.6l-.4 2.5a7.4 7.4 0 0 0-2.6 1.5l-2.4-1a.7.7 0 0 0-.9.3L.1 8a.7.7 0 0 0 .2.9l2 1.6a7.7 7.7 0 0 0 0 3l-2 1.6a.7.7 0 0 0-.2.9l1.9 3.3a.7.7 0 0 0 .9.3l2.4-1a7.4 7.4 0 0 0 2.6 1.5l.4 2.5a.7.7 0 0 0 .7.6h3.8a.7.7 0 0 0 .7-.6l.4-2.5a7.4 7.4 0 0 0 2.6-1.5l2.4 1a.7.7 0 0 0 .9-.3l1.9-3.3a.7.7 0 0 0-.2-.9l-2-1.6zM10.8 15.2a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4z"/></svg>';
+    settingsButton.insertBefore(gear, settingsButton.firstChild);
+    var toolCluster = cluster("group", "Werkzeuge");
+    toolCluster.appendChild(torchButton);
+    toolCluster.appendChild(settingsButton);
+    scroller.appendChild(modeCluster);
+    scroller.appendChild(toolCluster);
+
+    function controlButton(action, label, aria) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "ctrl";
+      button.setAttribute("data-action", action);
+      button.setAttribute("aria-label", aria);
+      var word = document.createElement("span");
+      word.className = "ctrl-label";
+      word.textContent = label;
+      button.appendChild(word);
+      return button;
+    }
+
+    function cluster(role, label) {
+      var node = document.createElement("div");
+      node.className = "cluster";
+      node.setAttribute("role", role);
+      node.setAttribute("aria-label", label);
+      return node;
+    }
+
+    function updateFades() {
+      var max = scroller.scrollWidth - scroller.clientWidth;
+      bar.classList.toggle("overflowing", max > 8);
+      bar.classList.toggle("can-left", scroller.scrollLeft > 8);
+      bar.classList.toggle("can-right", max - scroller.scrollLeft > 8);
+    }
+
+    function describeImage() {
+      var prefix = usingDemo ? "Beispielansicht" : "Kamerabild";
+      canvas.setAttribute("role", "img");
+      canvas.setAttribute("aria-label", prefix + ", Darstellung " + mode.label);
+    }
+
+    var focusRing = document.getElementById("focus-ring");
+    var focusRingTimer = 0;
+
+    function focusAtPoint(clientX, clientY) {
+      if (!settings.tapFocus || frozen || usingDemo) return;
+      if (!camera.focusCapabilities().supported) return;
+      var rect = view.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      var nx = (clientX - rect.left) / rect.width;
+      var ny = (clientY - rect.top) / rect.height;
+      if (nx < 0 || ny < 0 || nx > 1 || ny > 1) return;
+      var point = renderer.viewToSource(nx, ny);
+      focusRing.style.left = (clientX - rect.left) + "px";
+      focusRing.style.top = (clientY - rect.top) + "px";
+      focusRing.classList.remove("show");
+      void focusRing.offsetWidth;
+      focusRing.classList.add("show");
+      window.clearTimeout(focusRingTimer);
+      focusRingTimer = window.setTimeout(function () {
+        focusRing.classList.remove("show");
+      }, 900);
+      camera.focusAt(point.x, point.y).then(function (ok) {
+        if (!ok) {
+          focusRing.classList.remove("show");
+          return;
+        }
+        showModeHint("Scharfgestellt");
+        announce("Scharfgestellt.");
+      }).catch(function () {
+        focusRing.classList.remove("show");
+      });
+    }
+
+    function showModeHint(text, duration) {
+      modeHint.textContent = text;
+      modeHint.classList.add("show");
+      window.clearTimeout(hintTimer);
+      hintTimer = window.setTimeout(function () {
+        modeHint.classList.remove("show");
+      }, duration || 1000);
+    }
+
+    var orientToken = 0;
+    var rotateHinted = false;
+    var orientStatus = "–";
+
+    function isLandscape() {
+      try {
+        if (window.matchMedia("(orientation: landscape)").matches) return true;
+        if (window.matchMedia("(min-aspect-ratio: 4/3)").matches) return true;
+      } catch (err) { /* ohne matchMedia */ }
+      try {
+        var type = screen.orientation && screen.orientation.type;
+        if (type) return type.indexOf("landscape") === 0;
+      } catch (err2) { /* ältere Browser */ }
+      return false;
+    }
+
+    function considerRotateHint(wantsLock, locked) {
+      var landscape = isLandscape();
+      if (!landscape) {
+        rotateHinted = false;
+        return;
+      }
+      var show = SBL.rotateHintNeeded({
+        wantsLock: wantsLock,
+        landscape: true,
+        locked: locked,
+        alreadyHinted: rotateHinted
+      });
+      if (!show) return;
+      rotateHinted = true;
+      var hint = SBL.rotateLockHint(thisPlatform());
+      showModeHint(hint, 1800);
+      announce(hint + ".");
+    }
+
+    function applyOrientation() {
+      var token = orientToken + 1;
+      orientToken = token;
+      var wantsLock = false;
+      try { wantsLock = SBL.wantsPortraitLock(settings.rotate, settings.readingGuide); } catch (err) { wantsLock = false; }
+      var orientation = null;
+      try { orientation = screen.orientation || null; } catch (err) { orientation = null; }
+      function finish(locked, err) {
+        if (token !== orientToken) return;
+        if (locked) orientStatus = "locked";
+        else if (err && (err.name || err.message)) orientStatus = err.name || String(err.message);
+        else if (!wantsLock) orientStatus = "unlocked";
+        else orientStatus = "unsupported";
+        considerRotateHint(wantsLock, locked);
+        updateDebug();
+      }
+      try {
+        if (wantsLock && orientation && typeof orientation.lock === "function") {
+          Promise.resolve(orientation.lock("portrait")).then(function () {
+            finish(true);
+          }).catch(function (err) {
+            finish(false, err);
+          });
+          return;
+        }
+        if (!wantsLock && orientation && typeof orientation.unlock === "function") {
+          Promise.resolve(orientation.unlock()).catch(function () {});
+        }
+      } catch (err) {
+        finish(false, err);
+        return;
+      }
+      finish(false);
+    }
+
+    function selectMode(next, fromUser) {
+      if (!next) next = SBL.MODES[0];
+      mode = next;
+      renderer.setMode(mode);
+      if (settings.remember) storageSet("sblupe-mode", mode.id);
+      modeButton.querySelector(".ctrl-label").textContent = mode.label;
+      var isNormal = mode.id === "normal";
+      modeButton.classList.toggle("is-normal", isNormal);
+      modeButton.setAttribute("aria-pressed", isNormal ? "false" : "true");
+      modeButton.setAttribute("aria-label", "Darstellung " + mode.label + ". Tippen für die nächste.");
+      describeImage();
+      if (fromUser) {
+        showModeHint(mode.label);
+        announce("Darstellung " + mode.label);
+        if (isNormal) markNormal();
+      }
+    }
+
+    function markNormal() {
+      view.classList.remove("normal-flash");
+      void view.offsetWidth;
+      view.classList.add("normal-flash");
+      window.clearTimeout(flashTimer);
+      flashTimer = window.setTimeout(function () {
+        view.classList.remove("normal-flash");
+      }, 1350);
+      try {
+        if (typeof navigator.vibrate === "function") {
+          navigator.vibrate([45, 55, 45]);
+        }
+      } catch (err) { /* z. B. ältere Browser */ }
+    }
+
+    function cycleMode() {
+      var list = SBL.enabledModes(settings);
+      var index = 0;
+      var i;
+      for (i = 0; i < list.length; i += 1) {
+        if (list[i].id === mode.id) index = i;
+      }
+      selectMode(list[(index + 1) % list.length], true);
+    }
+
+    var seenZoom = null;
+
+    function renderZoom(state) {
+      if (seenZoom !== null && state.zoom !== seenZoom && renderer.resetSmooth) renderer.resetSmooth();
+      seenZoom = state.zoom;
+      var label = SBL.formatZoom(state.zoom);
+      slider.min = state.zoomMin;
+      slider.max = state.zoomMax;
+      if (String(slider.value) !== String(state.zoom)) slider.value = state.zoom;
+      zoomMinLabel.textContent = formatEnd(state.zoomMin);
+      zoomMaxLabel.textContent = formatEnd(state.zoomMax);
+      slider.setAttribute("aria-valuetext", label + " Zoom");
+      overlay.textContent = label;
+      var magnification = state.digitalScale;
+      if (frozen) {
+        magnification = freezeBaseScale * (state.zoom / Math.max(freezeBaseZoom, 0.01));
+        if (magnification < 1) magnification = 1;
+      }
+      renderer.setMagnification(magnification);
+      if (settings.remember) storageSet("sblupe-zoom", String(state.zoom));
+    }
+
+    function applyAdjust() {
+      var filter = "";
+      if (settings.brightness !== 100 || settings.contrast !== 100) {
+        filter = "brightness(" + settings.brightness + "%) contrast(" + settings.contrast + "%)";
+      }
+      canvas.style.filter = filter;
+    }
+
+    var safeProbe = null;
+
+    function safeTopPx() {
+      if (!safeProbe) {
+        safeProbe = document.createElement("div");
+        safeProbe.setAttribute("aria-hidden", "true");
+        safeProbe.style.cssText = "position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none;";
+        document.body.appendChild(safeProbe);
+      }
+      return safeProbe.getBoundingClientRect().height || 0;
+    }
+
+    function applyGuide() {
+      var guide = document.getElementById("reading-guide");
+      var win = guide.querySelector(".guide-window");
+      var shadeTop = guide.querySelector(".guide-shade-top");
+      var shadeBottom = guide.querySelector(".guide-shade-bottom");
+      var handle = document.getElementById("guide-handle");
+      var grip = document.getElementById("guide-grip");
+      var height = SBL.guideFraction(settings.guideSize);
+      guide.hidden = !settings.readingGuide;
+      guide.classList.remove("size-klein", "size-mittel", "size-gross");
+      guide.classList.add("size-" + settings.guideSize);
+      var viewRect = view.getBoundingClientRect();
+      var viewH = viewRect.height || 1;
+      var dock = document.querySelector(".dock");
+      var dockTop = dock ? dock.getBoundingClientRect().top : viewRect.bottom;
+      var freeTopPx = Math.max(0, safeTopPx() - viewRect.top);
+      var freeBottomPx = dockTop - viewRect.top;
+      if (freeBottomPx > viewH) freeBottomPx = viewH;
+      if (freeBottomPx < freeTopPx) freeBottomPx = viewH;
+      var handleH = guide.hidden ? 0 : (handle.offsetHeight || 0);
+      var previous = settings.guideOffset;
+      settings.guideOffset = SBL.clampGuideInView(
+        previous,
+        height,
+        freeTopPx / viewH,
+        freeBottomPx / viewH,
+        handleH / viewH
+      );
+      if (settings.remember && !guideDrag && Math.abs(previous - settings.guideOffset) > 0.0005) {
+        persistGuide();
+      }
+      var top = settings.guideOffset - height / 2;
+      win.style.top = (top * 100) + "%";
+      win.style.height = (height * 100) + "%";
+      shadeTop.style.top = "0";
+      shadeTop.style.height = Math.max(0, top * 100) + "%";
+      shadeBottom.style.top = ((top + height) * 100) + "%";
+      shadeBottom.style.height = Math.max(0, (1 - top - height) * 100) + "%";
+      handle.style.top = (settings.guideOffset * 100) + "%";
+      if (grip) grip.setAttribute("aria-valuenow", String(Math.round(settings.guideOffset * 100)));
+    }
+
+    function persistGuide() {
+      if (settings.remember) SBL.saveSettings(settings);
+    }
+
+    function updateTorch(state) {
+      torchButton.hidden = !state.torchSupported;
+      torchButton.setAttribute("aria-pressed", state.torch ? "true" : "false");
+      torchButton.querySelector(".ctrl-label").textContent = state.torch ? "Licht an" : "Licht";
+      torchButton.setAttribute("aria-label", state.torch ? "Taschenlampe ausschalten" : "Taschenlampe einschalten");
+    }
+
+    function showOverlay() {
+      overlay.classList.add("show");
+      window.clearTimeout(overlayTimer);
+      overlayTimer = window.setTimeout(function () {
+        overlay.classList.remove("show");
+      }, 900);
+    }
+
+    function zoomSentence(state) {
+      return "Vergrößerung " + SBL.formatZoom(state.zoom).replace("×", " mal");
+    }
+
+    function scheduleZoomAnnounce() {
+      window.clearTimeout(zoomAnnounceTimer);
+      zoomAnnounceTimer = window.setTimeout(announceZoom, 280);
+    }
+
+    function announceZoom() {
+      var state = camera.getState();
+      var text = zoomSentence(state);
+      if (state.zoom >= state.zoomMax - 0.02) text += " Größte Stufe.";
+      else if (state.zoom <= state.zoomMin + 0.02) text += " Kleinste Stufe.";
+      announce(text);
+    }
+
+    function showBanner(text, buttonLabel) {
+      bannerText.textContent = text;
+      retry.hidden = !buttonLabel;
+      if (buttonLabel) retry.textContent = buttonLabel;
+      banner.hidden = false;
+      announce(text);
+    }
+
+    function hideBanner() {
+      banner.hidden = true;
+      bannerText.textContent = "";
+    }
+
+    function useDemo(code) {
+      usingDemo = true;
+      if (!frozen) renderer.setSource(demo);
+      describeImage();
+      var key = TEXT[code] ? code : "unknown";
+      var buttonLabel = code === "beispiel" ? "Kamera starten" : "Erneut versuchen";
+      if (code === "insecure") buttonLabel = "";
+      showBanner(TEXT[key], buttonLabel);
+    }
+
+    function liveSource() {
+      return usingDemo ? demo : video;
+    }
+
+    function setFreezeButton(on) {
+      freezeButton.setAttribute("aria-pressed", on ? "true" : "false");
+      freezeButton.setAttribute("aria-label", on ? "Bild ist eingefroren. Tippen für das Livebild." : "Bild einfrieren");
+    }
+
+    function toggleFreeze() {
+      if (frozen) {
+        frozen = false;
+        snapshot = null;
+        if (renderer.holdSmooth) renderer.holdSmooth(false);
+        if (renderer.releaseFreeze) renderer.releaseFreeze();
+        renderer.setPan(0, 0);
+        camera.setFreezeZoom(false);
+        renderer.setSource(liveSource());
+        setFreezeButton(false);
+        showModeHint("Livebild");
+        announce("Livebild.");
+        return;
+      }
+      var src = liveSource();
+      var size = SBL.sourceSize(src);
+      if (!size) {
+        showModeHint("Kein Bild zum Einfrieren");
+        announce("Kein Bild zum Einfrieren.");
+        return;
+      }
+      freezeBaseScale = camera.getState().digitalScale || 1;
+      freezeBaseZoom = camera.getState().zoom || 1;
+      frozen = true;
+      if (renderer.holdSmooth && (mode.kind === SBL.KIND.smooth || mode.kind === SBL.KIND.smooth2 || mode.kind === SBL.KIND.smooth3 || mode.kind === SBL.KIND.smooth4 || mode.kind === SBL.KIND.smoothBw || mode.kind === SBL.KIND.smoothYb || mode.kind === SBL.KIND.smoothAmber || mode.kind === SBL.KIND.smoothGray)) renderer.holdSmooth(true);
+      renderer.setPan(0, 0);
+      camera.setFreezeZoom(true);
+      if (renderer.captureFreeze && renderer.captureFreeze(size[0], size[1])) {
+        snapshot = null;
+        renderer.setSource({ width: size[0], height: size[1] });
+      } else {
+        snapshot = document.createElement("canvas");
+        snapshot.width = size[0];
+        snapshot.height = size[1];
+        var copy = snapshot.getContext("2d");
+        copy.imageSmoothingEnabled = false;
+        copy.drawImage(src, 0, 0, size[0], size[1]);
+        renderer.setSource(snapshot);
+      }
+      setFreezeButton(true);
+      showModeHint("Bild eingefroren");
+      announce("Bild eingefroren. Vergrößern Sie es und schieben Sie es mit dem Finger.");
+    }
+
+    function useCamera() {
+      usingDemo = false;
+      if (!frozen) renderer.setSource(video);
+      hideBanner();
+      describeImage();
+    }
+
+    function boot() {
+      window.clearTimeout(slowTimer);
+      slowTimer = window.setTimeout(function () {
+        if (!camera.getState().active && banner.hidden) showBanner(TEXT.starting, "");
+      }, 600);
+      return camera.start().then(function () {
+        window.clearTimeout(slowTimer);
+        useCamera();
+        announce(camera.getState().facing === "user" ? TEXT.front : TEXT.rear);
+      }).catch(function (err) {
+        window.clearTimeout(slowTimer);
+        useDemo(err && err.code);
+      });
+    }
+
+    var pageZoomLabel = "–";
+
+    function applyUiScale() {
+      var touch = 0;
+      try { touch = navigator.maxTouchPoints || 0; } catch (err) { touch = 0; }
+      var platform = SBL.devicePlatform(navigator.userAgent || "", touch, navigator.platform || "");
+      var vv = window.visualViewport;
+      var info = SBL.pageZoomInfo({
+        ios: platform === "ios",
+        androidChrome: platform === "android" || platform === "android-chrome" || platform === "samsung",
+        innerWidth: window.innerWidth,
+        screenWidth: window.screen ? screen.width : 0,
+        vvWidth: vv && vv.width ? vv.width : window.innerWidth,
+        vvScale: vv && typeof vv.scale === "number" ? vv.scale : 1
+      });
+      var zoom = info.reliable && info.factor > 1.05 ? info.factor : 1;
+      pageZoomLabel = info.reliable ? info.factor.toFixed(2) : "–";
+      document.documentElement.style.setProperty("--ui-scale", String(SBL.textScale(settings.textSize)));
+      document.documentElement.style.setProperty("--page-zoom", String(zoom));
+    }
+
+    var debugOn = /(?:\?|&)debug=1(?:&|$)/.test(location.search);
+    var debugEl = document.getElementById("cam-debug");
+
+    function updateDebug() {
+      if (!debugOn || !debugEl) return;
+      debugEl.hidden = false;
+      var state = camera.getState();
+      camera.listCameras().then(function (cameras) {
+        var reported = camera.reportedFacing || "";
+        var id = camera.deviceId || "";
+        debugEl.textContent = (camera.desiredFacing || camera.facing || "?")
+          + " · " + (reported || "–")
+          + " · " + (id ? id.slice(0, 6) : "–")
+          + " · " + cameras.length
+          + " · " + (camera.lastError || "–")
+          + " · " + displayModeName()
+          + " · " + (orientStatus || "–")
+          + " · zoom " + pageZoomLabel
+          + " · " + (camera.frameWidth || "–") + "×" + (camera.frameHeight || "–")
+          + " hw" + (typeof camera.hardwareZoom === "number" ? camera.hardwareZoom.toFixed(2) : "–")
+          + " opt" + (state.opticalMax ? state.opticalMax.toFixed(2) : "–")
+          + " dig" + (state.digitalScale ? state.digitalScale.toFixed(2) : "1")
+          + " · " + (renderer.frameMs ? renderer.frameMs().toFixed(1) : "–") + " ms";
+      }).catch(function () {});
+    }
+
+    camera.onChange(function (state) {
+      renderZoom(state);
+      updateTorch(state);
+      refreshFocusSwitch();
+      updateDebug();
+      window.requestAnimationFrame(updateFades);
+    });
+
+    renderZoom(camera.getState());
+    selectMode(mode, false);
+    describeImage();
+
+    slider.addEventListener("input", function () {
+      camera.setZoom(parseFloat(slider.value));
+      showOverlay();
+    });
+    slider.addEventListener("change", announceZoom);
+    slider.addEventListener("pointerup", showOverlay);
+    slider.addEventListener("touchend", showOverlay);
+    modeButton.addEventListener("click", cycleMode);
+    freezeButton.addEventListener("click", toggleFreeze);
+
+    torchButton.addEventListener("click", function () {
+      camera.toggleTorch().then(function (on) {
+        var text = on ? "Licht an" : "Licht aus";
+        showModeHint(text);
+        announce(text + ".");
+      }).catch(function () {
+        showModeHint(TEXT.torchFail);
+        announce(TEXT.torchFail);
+      });
+    });
+
+    function refreshCameraChoices() {
+      camera.listCameras().then(function (cameras) {
+        var button = document.getElementById("set-switch");
+        var note = document.getElementById("camera-note");
+        if (!button || !note) return;
+        var labeled = cameras.filter(function (item) { return item.label; });
+        var single = labeled.length === 1 && cameras.length === 1;
+        button.disabled = single;
+        note.hidden = !single;
+      }).catch(function () {});
+    }
+
+    function waitForMenuClosed() {
+      return new Promise(function (resolve) {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            setTimeout(resolve, 220);
+          });
+        });
+      });
+    }
+
+    var menuSwitching = false;
+
+    function switchCamera() {
+      if (menuSwitching || camera.switching) return;
+      var button = document.getElementById("set-switch");
+      if (!button || button.disabled) return;
+      menuSwitching = true;
+      button.disabled = true;
+      closeSettings();
+      waitForMenuClosed().then(function () {
+        return camera.switchFacing();
+      }).then(function (result) {
+        if (result && result.ignored) return;
+        useCamera();
+        return camera.playVideo().then(function () {
+          var cameraText = camera.facing === "user" ? "Frontkamera" : "Rückkamera";
+          showModeHint(cameraText);
+          announce(cameraText + ".");
+          updateDebug();
+        });
+      }).catch(function (err) {
+        showModeHint(TEXT.switchFail);
+        announce(TEXT.switchFail + ".");
+        updateDebug();
+        if (!camera.getState().active) useDemo(err && err.code);
+        else if (!frozen) renderer.setSource(video);
+      }).then(function () {
+        menuSwitching = false;
+        refreshCameraChoices();
+        updateFades();
+      });
+    }
+
+    retry.addEventListener("click", function () {
+      showBanner(TEXT.starting, "");
+      boot();
+    });
+
+    function touchOnGuide(event) {
+      var i;
+      var touches = event.touches || [];
+      for (i = 0; i < touches.length; i += 1) {
+        var target = touches[i].target;
+        if (target && target.closest && target.closest(".guide-handle")) return true;
+      }
+      return !!(event.target && event.target.closest && event.target.closest(".guide-handle"));
+    }
+
+    var drag = null;
+    var tap = null;
+    var guideDrag = null;
+    view.addEventListener("touchstart", function (event) {
+      if (guideDrag || touchOnGuide(event)) return;
+      if (event.touches.length === 2) {
+        drag = null;
+        tap = null;
+        lastPinch = Date.now();
+        view._pinch = {
+          dist: touchDistance(event.touches),
+          zoom: camera.getState().zoom
+        };
+      } else if (event.touches.length === 1) {
+        tap = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+          t: Date.now(),
+          moved: false
+        };
+        if (frozen) {
+          drag = { x: tap.x, y: tap.y, moved: false };
+        }
+      }
+    }, { passive: true });
+
+    view.addEventListener("touchmove", function (event) {
+      if (guideDrag || touchOnGuide(event)) return;
+      if (event.touches.length === 2 && view._pinch) {
+        tap = null;
+        event.preventDefault();
+        lastPinch = Date.now();
+        var dist = touchDistance(event.touches);
+        if (view._pinch.dist > 0) {
+          camera.setZoom(view._pinch.zoom * (dist / view._pinch.dist));
+          showOverlay();
+        }
+        return;
+      }
+      if (tap && event.touches.length === 1) {
+        var movedX = event.touches[0].clientX - tap.x;
+        var movedY = event.touches[0].clientY - tap.y;
+        if (Math.abs(movedX) + Math.abs(movedY) > 14) tap.moved = true;
+      }
+      if (!drag || !frozen || event.touches.length !== 1) return;
+      event.preventDefault();
+      var touch = event.touches[0];
+      var dx = touch.clientX - drag.x;
+      var dy = touch.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      drag.x = touch.clientX;
+      drag.y = touch.clientY;
+      var rect = view.getBoundingClientRect();
+      renderer.panBy(dx, dy, rect.width, rect.height);
+    }, { passive: false });
+
+    view.addEventListener("touchend", function (event) {
+      if (drag && drag.moved) lastPinch = Date.now();
+      var endedTap = tap;
+      if (event.touches.length < 1) {
+        drag = null;
+        tap = null;
+      }
+      if (view._pinch && event.touches.length < 2) {
+        view._pinch = null;
+        lastPinch = Date.now();
+        announceZoom();
+        endedTap = null;
+      }
+      if (endedTap && !endedTap.moved && event.touches.length === 0 && Date.now() - endedTap.t < 320) {
+        focusAtPoint(endedTap.x, endedTap.y);
+      }
+    });
+
+    var mousePan = null;
+    var mouseTap = null;
+    view.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "touch" || event.button !== 0) return;
+      if (event.target.closest && event.target.closest(".guide-handle")) return;
+      mouseTap = { x: event.clientX, y: event.clientY, moved: false };
+      if (!frozen) return;
+      mousePan = { x: event.clientX, y: event.clientY };
+    });
+    view.addEventListener("pointermove", function (event) {
+      if (mouseTap) {
+        if (Math.abs(event.clientX - mouseTap.x) + Math.abs(event.clientY - mouseTap.y) > 14) mouseTap.moved = true;
+      }
+      if (!mousePan) return;
+      var dx = event.clientX - mousePan.x;
+      var dy = event.clientY - mousePan.y;
+      mousePan.x = event.clientX;
+      mousePan.y = event.clientY;
+      var rect = view.getBoundingClientRect();
+      renderer.panBy(dx, dy, rect.width, rect.height);
+    });
+    view.addEventListener("pointerup", function (event) {
+      if (mouseTap && !mouseTap.moved && event.pointerType !== "touch") focusAtPoint(mouseTap.x, mouseTap.y);
+      mouseTap = null;
+      mousePan = null;
+    });
+    view.addEventListener("pointercancel", function () { mouseTap = null; mousePan = null; });
+
+    view.addEventListener("wheel", function (event) {
+      if (event.target.closest && event.target.closest(".guide-handle")) return;
+      event.preventDefault();
+      var factor = event.deltaY < 0 ? 1.08 : (1 / 1.08);
+      camera.setZoom(camera.getState().zoom * factor);
+      showOverlay();
+      scheduleZoomAnnounce();
+    }, { passive: false });
+
+    ["gesturestart", "gesturechange", "gestureend"].forEach(function (name) {
+      document.addEventListener(name, function (event) { event.preventDefault(); }, { passive: false });
+    });
+
+    scroller.addEventListener("scroll", updateFades, { passive: true });
+    function reflowGuide() {
+      applyGuide();
+      window.requestAnimationFrame(applyGuide);
+    }
+
+    var wasLandscape = isLandscape();
+    window.addEventListener("resize", function () {
+      applyUiScale();
+      updateFades();
+      reflowGuide();
+      var now = isLandscape();
+      if (now !== wasLandscape) {
+        wasLandscape = now;
+        applyOrientation();
+      }
+    });
+    window.addEventListener("orientationchange", function () {
+      reflowGuide();
+      applyOrientation();
+    });
+    try {
+      if (screen.orientation && screen.orientation.addEventListener) {
+        screen.orientation.addEventListener("change", function () {
+          reflowGuide();
+          applyOrientation();
+        });
+      }
+    } catch (err) { /* ohne Orientation API */ }
+    if (window.ResizeObserver) new ResizeObserver(updateFades).observe(scroller);
+    window.addEventListener("load", updateFades);
+    scroller.scrollLeft = 0;
+    updateFades();
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        renderer.stop();
+        camera.stop();
+        return;
+      }
+      renderer.start();
+      if (usingDemo && /beispiel=1/.test(location.search)) {
+        if (!frozen) renderer.setSource(demo);
+        return;
+      }
+      boot();
+    });
+
+    window.addEventListener("pagehide", function () { camera.stop(); });
+
+    var settingsEl = document.getElementById("settings");
+    var guideSwitch = document.getElementById("guide-switch");
+    var rememberSwitch = document.getElementById("remember-switch");
+    var focusSwitch = document.getElementById("focus-switch");
+    var focusNote = document.getElementById("focus-note");
+    var focusRow = document.getElementById("focus-row");
+    var brightSlider = document.getElementById("set-brightness");
+    var contrastSlider = document.getElementById("set-contrast");
+    var brightValue = document.getElementById("bright-value");
+    var contrastValue = document.getElementById("contrast-value");
+    var modePicks = document.getElementById("mode-picks");
+
+    function percentText(value) { return value + " %"; }
+
+    function syncAdjustLabels() {
+      brightValue.textContent = percentText(settings.brightness);
+      contrastValue.textContent = percentText(settings.contrast);
+      brightSlider.value = String(settings.brightness);
+      contrastSlider.value = String(settings.contrast);
+      brightSlider.setAttribute("aria-valuetext", settings.brightness + " Prozent");
+      contrastSlider.setAttribute("aria-valuetext", settings.contrast + " Prozent");
+    }
+
+    function syncGuideControls() {
+      guideSwitch.setAttribute("aria-checked", settings.readingGuide ? "true" : "false");
+      var sizes = document.querySelectorAll(".size-picks button");
+      var i;
+      for (i = 0; i < sizes.length; i += 1) {
+        sizes[i].setAttribute("aria-pressed", sizes[i].getAttribute("data-size") === settings.guideSize ? "true" : "false");
+      }
+    }
+
+    SBL.MODES.forEach(function (item) {
+      var row = document.createElement("div");
+      row.className = "pick-row";
+      var name = document.createElement("span");
+      name.textContent = item.label;
+      var toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "switch";
+      toggle.setAttribute("role", "switch");
+      toggle.setAttribute("aria-label", item.label);
+      row.appendChild(name);
+      if (item.id === "normal") {
+        row.classList.add("is-locked");
+        var note = document.createElement("span");
+        note.className = "pick-note";
+        note.textContent = "immer an";
+        row.appendChild(note);
+        toggle.disabled = true;
+        toggle.setAttribute("aria-checked", "true");
+        toggle.setAttribute("aria-label", "Normal, immer eingeschaltet");
+      } else {
+        toggle.setAttribute("aria-checked", settings.modes[item.id] !== false ? "true" : "false");
+        toggle.addEventListener("click", function () {
+          var on = toggle.getAttribute("aria-checked") !== "true";
+          toggle.setAttribute("aria-checked", on ? "true" : "false");
+          settings.modes[item.id] = on;
+          SBL.saveSettings(settings);
+          if (!on && mode.id === item.id) {
+            selectMode(SBL.modeById("normal"), false);
+            announce("Darstellung Normal");
+          }
+        });
+      }
+      row.appendChild(toggle);
+      modePicks.appendChild(row);
+    });
+
+    guideSwitch.addEventListener("click", function () {
+      settings.readingGuide = guideSwitch.getAttribute("aria-checked") !== "true";
+      guideSwitch.setAttribute("aria-checked", settings.readingGuide ? "true" : "false");
+      SBL.saveSettings(settings);
+      applyGuide();
+      applyOrientation();
+    });
+
+    function syncTextChoices() {
+      var buttons = document.querySelectorAll("[data-text]");
+      var current = settings.textSize || "normal";
+      var i;
+      for (i = 0; i < buttons.length; i += 1) {
+        buttons[i].setAttribute("aria-checked", buttons[i].getAttribute("data-text") === current ? "true" : "false");
+      }
+    }
+
+    document.querySelectorAll("[data-text]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var next = button.getAttribute("data-text");
+        if (next !== "normal" && next !== "gross" && next !== "sehr-gross") return;
+        settings.textSize = next;
+        SBL.saveSettings(settings);
+        syncTextChoices();
+        applyUiScale();
+        updateDebug();
+      });
+    });
+
+    function syncRotateChoices() {
+      var buttons = document.querySelectorAll(".rotate-choice");
+      var i;
+      for (i = 0; i < buttons.length; i += 1) {
+        var on = buttons[i].getAttribute("data-rotate") === settings.rotate;
+        buttons[i].setAttribute("aria-checked", on ? "true" : "false");
+      }
+    }
+
+    document.querySelectorAll(".rotate-choice").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var next = button.getAttribute("data-rotate");
+        if (next !== "follow" && next !== "guide" && next !== "lock") return;
+        settings.rotate = next;
+        SBL.saveSettings(settings);
+        syncRotateChoices();
+        applyOrientation();
+      });
+    });
+
+    function moveGuide(next, announceText) {
+      settings.guideOffset = SBL.clampGuide(next, settings.guideSize);
+      applyGuide();
+      persistGuide();
+      if (announceText) announce(announceText);
+    }
+
+    var guideHandle = document.getElementById("guide-handle");
+    guideHandle.addEventListener("click", function (event) { event.stopPropagation(); });
+    guideHandle.addEventListener("touchstart", function (event) {
+      event.stopPropagation();
+    }, { passive: true });
+    guideHandle.addEventListener("touchmove", function (event) {
+      event.stopPropagation();
+      if (guideDrag) event.preventDefault();
+    }, { passive: false });
+    guideHandle.addEventListener("pointerdown", function (event) {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      guideDrag = { id: event.pointerId, y: event.clientY, moved: false };
+      drag = null;
+      tap = null;
+      view._pinch = null;
+      mousePan = null;
+      if (guideHandle.setPointerCapture) {
+        try { guideHandle.setPointerCapture(event.pointerId); } catch (err) { /* synthetisches Ereignis */ }
+      }
+    });
+    guideHandle.addEventListener("pointermove", function (event) {
+      if (!guideDrag || event.pointerId !== guideDrag.id) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var rect = view.getBoundingClientRect();
+      var dy = event.clientY - guideDrag.y;
+      if (Math.abs(dy) > 2) guideDrag.moved = true;
+      guideDrag.y = event.clientY;
+      if (!rect.height) return;
+      settings.guideOffset = SBL.clampGuide(settings.guideOffset + dy / rect.height, settings.guideSize);
+      applyGuide();
+    });
+    function endGuideDrag(event) {
+      if (!guideDrag || (event && event.pointerId !== guideDrag.id)) return;
+      var moved = guideDrag.moved;
+      guideDrag = null;
+      if (moved) persistGuide();
+    }
+    guideHandle.addEventListener("pointerup", endGuideDrag);
+    guideHandle.addEventListener("pointercancel", endGuideDrag);
+    document.getElementById("guide-grip").addEventListener("keydown", function (event) {
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      event.preventDefault();
+      var direction = event.key === "ArrowUp" ? -1 : 1;
+      moveGuide(
+        SBL.nudgeGuide(settings.guideOffset, settings.guideSize, direction),
+        direction < 0 ? "Lesezeile nach oben." : "Lesezeile nach unten."
+      );
+    });
+
+    document.querySelectorAll(".size-picks button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        settings.guideSize = button.getAttribute("data-size");
+        settings.guideOffset = SBL.clampGuide(settings.guideOffset, settings.guideSize);
+        SBL.saveSettings(settings);
+        syncGuideControls();
+        applyGuide();
+      });
+    });
+
+    function setMenuSlider(input, raw) {
+      var min = parseFloat(input.min);
+      var max = parseFloat(input.max);
+      var step = parseFloat(input.step) || 1;
+      var next = Math.round(raw / step) * step;
+      if (next < min) next = min;
+      if (next > max) next = max;
+      input.value = String(next);
+      if (input === brightSlider) settings.brightness = next;
+      else settings.contrast = next;
+      syncAdjustLabels();
+      SBL.saveSettings(settings);
+      applyAdjust();
+    }
+
+    function bindMenuSlider(input) {
+      var field = input.parentNode;
+      var drag = null;
+
+      function valueAt(clientX) {
+        var rect = field.getBoundingClientRect();
+        return SBL.sliderValueAt(clientX, rect.left, rect.width, parseFloat(input.min), parseFloat(input.max));
+      }
+
+      function lockSlide(pointerId) {
+        if (!drag || drag.sliding) return;
+        drag.sliding = true;
+        if (pointerId !== undefined && field.setPointerCapture) {
+          try { field.setPointerCapture(pointerId); } catch (err) {}
+        }
+      }
+
+      field.addEventListener("pointerdown", function (event) {
+        if (event.button !== 0) return;
+        if (event.target.closest && event.target.closest(".step-btn")) return;
+        drag = {
+          id: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          sliding: false,
+          scroll: false
+        };
+      });
+      field.addEventListener("pointermove", function (event) {
+        if (!drag || event.pointerId !== drag.id || drag.scroll) return;
+        var gesture = SBL.sliderGesture(event.clientX - drag.x, event.clientY - drag.y, drag.sliding);
+        if (gesture === "wait") return;
+        if (gesture === "scroll") {
+          drag.scroll = true;
+          return;
+        }
+        lockSlide(event.pointerId);
+        if (event.cancelable) event.preventDefault();
+        setMenuSlider(input, valueAt(event.clientX));
+      });
+      field.addEventListener("pointerup", function (event) {
+        if (!drag || event.pointerId !== drag.id) return;
+        drag = null;
+      });
+      field.addEventListener("pointercancel", function (event) {
+        if (!drag || event.pointerId !== drag.id) return;
+        if (drag.sliding) {
+          drag.pointerLost = true;
+          return;
+        }
+        drag = null;
+      });
+
+      field.addEventListener("touchmove", function (event) {
+        if (!drag || !drag.sliding) return;
+        if (event.cancelable) event.preventDefault();
+        if (!drag.pointerLost || !event.touches || !event.touches.length) return;
+        setMenuSlider(input, valueAt(event.touches[0].clientX));
+      }, { passive: false });
+      field.addEventListener("touchend", function () {
+        if (drag && drag.pointerLost) drag = null;
+      });
+      field.addEventListener("touchcancel", function () {
+        if (drag && drag.pointerLost) drag = null;
+      });
+
+      input.addEventListener("input", function () {
+        setMenuSlider(input, parseFloat(input.value));
+      });
+    }
+
+    bindMenuSlider(brightSlider);
+    bindMenuSlider(contrastSlider);
+    document.getElementById("bright-down").addEventListener("click", function () {
+      setMenuSlider(brightSlider, parseFloat(brightSlider.value) - parseFloat(brightSlider.step || "5"));
+    });
+    document.getElementById("bright-up").addEventListener("click", function () {
+      setMenuSlider(brightSlider, parseFloat(brightSlider.value) + parseFloat(brightSlider.step || "5"));
+    });
+    document.getElementById("contrast-down").addEventListener("click", function () {
+      setMenuSlider(contrastSlider, parseFloat(contrastSlider.value) - parseFloat(contrastSlider.step || "5"));
+    });
+    document.getElementById("contrast-up").addEventListener("click", function () {
+      setMenuSlider(contrastSlider, parseFloat(contrastSlider.value) + parseFloat(contrastSlider.step || "5"));
+    });
+    document.getElementById("set-reset").addEventListener("click", function () {
+      settings.brightness = 100;
+      settings.contrast = 100;
+      syncAdjustLabels();
+      SBL.saveSettings(settings);
+      applyAdjust();
+      showModeHint("Helligkeit und Kontrast zurückgesetzt");
+      announce("Helligkeit und Kontrast zurückgesetzt.");
+    });
+    rememberSwitch.addEventListener("click", function () {
+      settings.remember = rememberSwitch.getAttribute("aria-checked") !== "true";
+      rememberSwitch.setAttribute("aria-checked", settings.remember ? "true" : "false");
+      if (settings.remember) {
+        storageSet("sblupe-mode", mode.id);
+        storageSet("sblupe-zoom", String(camera.getState().zoom));
+      }
+      SBL.saveSettings(settings);
+    });
+    document.getElementById("set-switch").addEventListener("click", switchCamera);
+
+    function refreshFocusSwitch() {
+      var supported = false;
+      try { supported = camera.focusCapabilities().supported; } catch (err) { supported = false; }
+      if (!supported) {
+        focusSwitch.disabled = true;
+        focusSwitch.setAttribute("aria-checked", "false");
+        focusRow.classList.add("is-locked");
+        focusNote.hidden = false;
+        return;
+      }
+      focusSwitch.disabled = false;
+      focusRow.classList.remove("is-locked");
+      focusNote.hidden = true;
+      focusSwitch.setAttribute("aria-checked", settings.tapFocus ? "true" : "false");
+    }
+
+    focusSwitch.addEventListener("click", function () {
+      if (focusSwitch.disabled) return;
+      settings.tapFocus = focusSwitch.getAttribute("aria-checked") !== "true";
+      focusSwitch.setAttribute("aria-checked", settings.tapFocus ? "true" : "false");
+      SBL.saveSettings(settings);
+    });
+
+    var installSection = document.getElementById("install-section");
+    var installNote = document.getElementById("install-note");
+    var installHint = document.getElementById("install-hint");
+    var installHintText = document.getElementById("install-hint-text");
+
+    function refreshInstall() {
+      var installed = appIsInstalled();
+      if (installSection) installSection.hidden = installed;
+      if (installed && installHint) installHint.hidden = true;
+    }
+
+    function showInstallInstructions() {
+      var text = SBL.installCopy(thisPlatform());
+      if (installNote) {
+        installNote.hidden = false;
+        installNote.textContent = text;
+      }
+      announce(text);
+    }
+
+    document.getElementById("install-app").addEventListener("click", function () {
+      if (installPromptEvent && typeof installPromptEvent.prompt === "function") {
+        var pending = installPromptEvent;
+        installPromptEvent = null;
+        var prompted;
+        try {
+          prompted = pending.prompt();
+        } catch (err) {
+          showInstallInstructions();
+          return;
+        }
+        Promise.resolve(prompted).then(function () {
+          if (pending.userChoice && typeof pending.userChoice.then === "function") return pending.userChoice;
+        }).then(function () {
+          refreshInstall();
+        }).catch(function () {
+          showInstallInstructions();
+        });
+        return;
+      }
+      showInstallInstructions();
+    });
+
+    document.getElementById("install-hint-ok").addEventListener("click", function () {
+      storageSet(INSTALL_SEEN, "1");
+      installHint.hidden = true;
+    });
+
+    function maybeShowInstallHint() {
+      if (appIsInstalled()) return;
+      if (storageGet(INSTALL_SEEN) === "1") return;
+      installHintText.textContent = SBL.installCopy(thisPlatform());
+      installHint.hidden = false;
+    }
+
+    function openSettings() {
+      settingsEl.hidden = false;
+      refreshInstall();
+      refreshCameraChoices();
+      refreshFocusSwitch();
+      var title = document.getElementById("settings-title");
+      if (title) title.focus();
+    }
+    function closeSettings() {
+      settingsEl.hidden = true;
+      settingsButton.focus();
+    }
+    settingsButton.addEventListener("click", openSettings);
+    document.getElementById("settings-done").addEventListener("click", closeSettings);
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !settingsEl.hidden) closeSettings();
+    });
+
+    syncGuideControls();
+    syncTextChoices();
+    syncRotateChoices();
+    syncAdjustLabels();
+    rememberSwitch.setAttribute("aria-checked", settings.remember ? "true" : "false");
+    applyUiScale();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", applyUiScale);
+    }
+    applyGuide();
+    applyAdjust();
+    applyOrientation();
+    refreshFocusSwitch();
+    refreshInstall();
+    maybeShowInstallHint();
+    updateDebug();
+
+    var beispiel = /(?:\?|&)beispiel=1(?:&|$)/.test(location.search);
+    if (beispiel) {
+      useDemo("beispiel");
+      refreshCameraChoices();
+    } else {
+      boot().then(refreshCameraChoices, refreshCameraChoices);
+    }
+
+    SBL.app = {
+      camera: camera,
+      renderer: renderer,
+      selectMode: function (id) { selectMode(SBL.modeById(id), true); },
+      updateFades: updateFades,
+      refreshInstall: refreshInstall
+    };
+
+    if ("serviceWorker" in navigator && /\/$|index\.html$|Lupe_3\.html$/.test(location.pathname)) {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    }
+  }
+
+  function touchDistance(touches) {
+    var dx = touches[0].clientX - touches[1].clientX;
+    var dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})(window.SBL = window.SBL || {});
+
+</script>
+</body>
+</html>
