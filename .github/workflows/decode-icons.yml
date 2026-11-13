@@ -1,0 +1,44 @@
+name: Commit decoded PNG icons
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "icons/*.png.b64"
+      - ".github/workflows/decode-icons.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Decode and commit PNG icons
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          from pathlib import Path
+          import base64, sys
+          icons = Path("icons")
+          written = []
+          for p in sorted(icons.glob("*.png.b64")):
+              out = Path(str(p)[:-4])
+              data = base64.b64decode(p.read_text().strip())
+              if data[:8] != b"\x89PNG\r\n\x1a\n":
+                  sys.exit(f"invalid PNG magic in {p}")
+              out.write_bytes(data)
+              written.append(f"{out} ({len(data)} bytes)")
+          print("wrote:", ", ".join(written) or "nothing")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add icons/*.png
+          if git diff --cached --quiet; then
+            echo "No icon changes to commit"
+          else
+            git commit -m "Add decoded PWA icon PNGs"
+            git push
+          fi
