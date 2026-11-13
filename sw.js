@@ -1,16 +1,9 @@
 /* Offline-Cache für die statische SB-Lupe. */
-var CACHE = "sb-lupe-v34";
+var CACHE = "lupe-3-v34";
 var FILES = [
   "./",
   "./index.html",
   "./Lupe_3.html",
-  "./css/app.css",
-  "./js/modes.js",
-  "./js/demo.js",
-  "./js/camera.js",
-  "./js/renderer.js",
-  "./js/settings.js",
-  "./js/app.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -55,7 +48,7 @@ self.addEventListener("fetch", function (event) {
         }
         return response;
       }).catch(function () {
-        return caches.match("./index.html");
+        return caches.match("./Lupe_3.html");
       });
     })
   );
